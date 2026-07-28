@@ -1,0 +1,455 @@
+import { useEffect, useState } from 'react';
+import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Smartphone } from 'lucide-react';
+import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from '@/lib/router';
+import * as db from '@/lib/db';
+import { fetchDeliverySettings } from '@/lib/queries';
+import type { Address, DeliverySetting } from '@/types';
+import { formatCurrency, generateOrderNumber } from '@/lib/utils';
+import { Spinner } from '@/components/Feedback';
+
+export function CheckoutPage() {
+  const navigate = useNavigate();
+  const { items, subtotal, clear } = useCart();
+  const { session } = useAuth();
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+  const [placing, setPlacing] = useState(false);
+  const [error, setError] = useState('');
+
+  // Form state
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [newAddr, setNewAddr] = useState({
+    label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '',
+  });
+  const [deliverySlot, setDeliverySlot] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'cod' | 'online'>('cod');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate('/cart');
+    }
+  }, [items.length, navigate]);
+
+  useEffect(() => {
+    if (!session) {
+      navigate('/login?redirect=/checkout');
+      return;
+    }
+    let mounted = true;
+    (async () => {
+      try {
+        const [addrList, ds] = await Promise.all([
+          db.listAddresses(session.user.id),
+          fetchDeliverySettings(),
+        ]);
+        if (!mounted) return;
+        setAddresses(addrList);
+        setDeliverySettings(ds);
+        const defaultAddr = addrList.find((a) => a.is_default) || addrList[0];
+        if (defaultAddr) setSelectedAddressId(defaultAddr.id);
+        else if (addrList.length === 0) setShowAddressForm(true);
+      } finally {
+        if (mounted) setLoadingData(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [session, navigate]);
+
+  const deliveryCharge = subtotal >= 499 ? 0 : 30;
+  const total = subtotal + deliveryCharge;
+
+  const saveAddress = async () => {
+    if (!session) return;
+    setError('');
+    if (!newAddr.full_name || !newAddr.phone || !newAddr.line1 || !newAddr.city || !newAddr.pincode) {
+      setError('Please fill all required address fields.');
+      return;
+    }
+    if (!/^\d{6}$/.test(newAddr.pincode)) {
+      setError('Pincode must be a 6-digit number.');
+      return;
+    }
+    const saved = await db.insertAddress({
+      ...newAddr,
+      user_id: session.user.id,
+      line2: newAddr.line2 || null,
+      is_default: addresses.length === 0,
+    });
+    setAddresses((prev) => [...prev, saved]);
+    setSelectedAddressId(saved.id);
+    setShowAddressForm(false);
+    setNewAddr({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+  };
+
+  const placeOrder = async () => {
+    if (!session) {
+      navigate('/login?redirect=/checkout');
+      return;
+    }
+    setError('');
+    const address = addresses.find((a) => a.id === selectedAddressId);
+    if (!address) {
+      setError('Please select a delivery address.');
+      return;
+    }
+    setPlacing(true);
+    try {
+      const orderNumber = generateOrderNumber();
+      const addressSnapshot = {
+        label: address.label,
+        full_name: address.full_name,
+        phone: address.phone,
+        line1: address.line1,
+        line2: address.line2,
+        city: address.city,
+        pincode: address.pincode,
+      };
+
+      await db.createOrderWithItems(
+        {
+          user_id: session.user.id,
+          order_number: orderNumber,
+          status: 'placed',
+          subtotal,
+          delivery_charge: deliveryCharge,
+          discount: 0,
+          total,
+          payment_mode: paymentMode,
+          payment_status: paymentMode === 'cod' ? 'pay_on_delivery' : 'pending',
+          address_snapshot: addressSnapshot,
+          delivery_slot: deliverySlot || null,
+          notes: notes || null,
+        },
+        items.map((i) => ({
+          product_id: i.product.id,
+          product_name: i.product.name,
+          product_image: i.product.image_url,
+          unit: i.product.unit,
+          price: i.product.price,
+          quantity: i.quantity,
+          subtotal: i.product.price * i.quantity,
+        })),
+      );
+
+      clear();
+      navigate(`/order-confirmation/${orderNumber}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to place order. Please try again.');
+    } finally {
+      setPlacing(false);
+    }
+  };
+
+  if (loadingData) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Spinner size={32} />
+      </div>
+    );
+  }
+
+  const slots = [
+    'Today, 6 PM – 8 PM',
+    'Today, 8 PM – 10 PM',
+    'Tomorrow, 7 AM – 9 AM',
+    'Tomorrow, 10 AM – 12 PM',
+    'Tomorrow, 4 PM – 6 PM',
+  ];
+
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-6 animate-fade-in">
+      <button
+        onClick={() => navigate('/cart')}
+        className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-700"
+      >
+        <ChevronLeft size={16} /> Back to cart
+      </button>
+
+      <h1 className="mt-2 font-heading text-2xl font-bold text-gray-900">Checkout</h1>
+
+      <div className="mt-5 grid gap-6 lg:grid-cols-3">
+        <div className="space-y-5 lg:col-span-2">
+          {/* Address */}
+          <Section icon={MapPin} title="Delivery Address" step={1}>
+            {addresses.length > 0 && !showAddressForm && (
+              <div className="space-y-2">
+                {addresses.map((a) => (
+                  <label
+                    key={a.id}
+                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${
+                      selectedAddressId === a.id
+                        ? 'border-primary-500 bg-primary-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="address"
+                      checked={selectedAddressId === a.id}
+                      onChange={() => setSelectedAddressId(a.id)}
+                      className="mt-1 h-4 w-4 text-primary-600"
+                    />
+                    <div className="text-sm">
+                      <p className="font-medium text-gray-900">
+                        {a.full_name} <span className="text-gray-500">· {a.label}</span>
+                      </p>
+                      <p className="text-gray-600">
+                        {a.line1}{a.line2 ? `, ${a.line2}` : ''}, {a.city} – {a.pincode}
+                      </p>
+                      <p className="text-gray-500">Phone: {a.phone}</p>
+                    </div>
+                  </label>
+                ))}
+                <button
+                  onClick={() => setShowAddressForm(true)}
+                  className="text-sm font-medium text-primary-700 hover:text-primary-800"
+                >
+                  + Add new address
+                </button>
+              </div>
+            )}
+
+            {showAddressForm && (
+              <div className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label">Label</label>
+                    <select
+                      value={newAddr.label}
+                      onChange={(e) => setNewAddr({ ...newAddr, label: e.target.value })}
+                      className="input"
+                    >
+                      <option>Home</option>
+                      <option>Work</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Full Name *</label>
+                    <input
+                      value={newAddr.full_name}
+                      onChange={(e) => setNewAddr({ ...newAddr, full_name: e.target.value })}
+                      className="input"
+                      placeholder="Recipient name"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="label">Phone *</label>
+                    <input
+                      value={newAddr.phone}
+                      onChange={(e) => setNewAddr({ ...newAddr, phone: e.target.value })}
+                      className="input"
+                      placeholder="10-digit mobile"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Pincode *</label>
+                    <input
+                      value={newAddr.pincode}
+                      onChange={(e) => setNewAddr({ ...newAddr, pincode: e.target.value })}
+                      className="input"
+                      placeholder="6-digit pincode"
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Address Line 1 *</label>
+                  <input
+                    value={newAddr.line1}
+                    onChange={(e) => setNewAddr({ ...newAddr, line1: e.target.value })}
+                    className="input"
+                    placeholder="House no, building, street"
+                  />
+                </div>
+                <div>
+                  <label className="label">Address Line 2</label>
+                  <input
+                    value={newAddr.line2}
+                    onChange={(e) => setNewAddr({ ...newAddr, line2: e.target.value })}
+                    className="input"
+                    placeholder="Area, landmark (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="label">City *</label>
+                  <input
+                    value={newAddr.city}
+                    onChange={(e) => setNewAddr({ ...newAddr, city: e.target.value })}
+                    className="input"
+                    placeholder="City"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={saveAddress} className="btn-primary">Save Address</button>
+                  {addresses.length > 0 && (
+                    <button onClick={() => setShowAddressForm(false)} className="btn-secondary">
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </Section>
+
+          {/* Delivery slot */}
+          <Section icon={Truck} title="Delivery Slot" step={2}>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {slots.map((slot) => (
+                <label
+                  key={slot}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm ${
+                    deliverySlot === slot
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="slot"
+                    checked={deliverySlot === slot}
+                    onChange={() => setDeliverySlot(slot)}
+                    className="h-4 w-4 text-primary-600"
+                  />
+                  {slot}
+                </label>
+              ))}
+            </div>
+          </Section>
+
+          {/* Payment */}
+          <Section icon={CreditCard} title="Payment Method" step={3}>
+            <div className="space-y-2">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
+                  paymentMode === 'cod' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  checked={paymentMode === 'cod'}
+                  onChange={() => setPaymentMode('cod')}
+                  className="h-4 w-4 text-primary-600"
+                />
+                <Banknote size={20} className="text-gray-600" />
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">Cash on Delivery</p>
+                  <p className="text-gray-500">Pay with cash when your order arrives</p>
+                </div>
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
+                  paymentMode === 'online' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment"
+                  checked={paymentMode === 'online'}
+                  onChange={() => setPaymentMode('online')}
+                  className="h-4 w-4 text-primary-600"
+                />
+                <Smartphone size={20} className="text-gray-600" />
+                <div className="text-sm">
+                  <p className="font-medium text-gray-900">Online Payment</p>
+                  <p className="text-gray-500">UPI / Card / Net Banking (demo)</p>
+                </div>
+              </label>
+            </div>
+          </Section>
+
+          {/* Notes */}
+          <div>
+            <label className="label">Order Notes (optional)</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="input min-h-[80px]"
+              placeholder="Any delivery instructions for our delivery partner…"
+            />
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="lg:col-span-1">
+          <div className="card sticky top-32 p-5">
+            <h2 className="text-base font-semibold text-gray-900">Order Summary</h2>
+            <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+              {items.map(({ product, quantity }) => (
+                <div key={product.id} className="flex items-center gap-2 text-sm">
+                  <img src={product.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-gray-800">{product.name}</p>
+                    <p className="text-xs text-gray-500">{quantity} × {formatCurrency(product.price)}</p>
+                  </div>
+                  <span className="font-medium">{formatCurrency(product.price * quantity)}</span>
+                </div>
+              ))}
+            </div>
+            <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-gray-600">Subtotal</dt>
+                <dd className="font-medium">{formatCurrency(subtotal)}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-gray-600">Delivery</dt>
+                <dd className={deliveryCharge === 0 ? 'text-success-600 font-medium' : 'font-medium'}>
+                  {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
+                </dd>
+              </div>
+              <div className="flex justify-between border-t border-gray-100 pt-2 text-base">
+                <dt className="font-semibold">Total</dt>
+                <dd className="font-bold">{formatCurrency(total)}</dd>
+              </div>
+            </dl>
+
+            {error && (
+              <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-sm text-error-600">{error}</p>
+            )}
+
+            <button
+              onClick={placeOrder}
+              disabled={placing || !selectedAddressId}
+              className="btn-primary mt-4 w-full py-3"
+            >
+              {placing ? <Spinner size={18} /> : `Place Order · ${formatCurrency(total)}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  icon: Icon,
+  title,
+  step,
+  children,
+}: {
+  icon: typeof MapPin;
+  title: string;
+  step: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="card p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
+          {step}
+        </div>
+        <Icon size={18} className="text-gray-600" />
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
