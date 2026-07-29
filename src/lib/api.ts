@@ -18,10 +18,20 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`/api${path}`, { ...options, headers });
-  const data = await res.json().catch(() => ({}));
+  const text = await res.text();
+
+  // A misconfigured proxy answers /api with the SPA's index.html, which would
+  // otherwise reach the UI as an empty object and break rendering.
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`API did not return JSON (${res.status}) for /api${path}`);
+  }
 
   if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
+    const error = (data as { error?: string })?.error;
+    throw new Error(error || `Request failed (${res.status})`);
   }
   return data as T;
 }
