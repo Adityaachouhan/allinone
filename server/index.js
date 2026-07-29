@@ -29,7 +29,7 @@ import {
 } from './db.js';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env.PORT);
 const JWT_SECRET = process.env.JWT_SECRET || 'allinone-dev-secret';
 const distDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
