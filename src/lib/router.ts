@@ -1,46 +1,45 @@
 import { useEffect, useState, useCallback } from 'react';
 
-// Lightweight hash-based router. Supports path + query params.
-// e.g. #/category/fruits-vegetables?sort=price_asc  →  { path, query, navigate }
+// Lightweight History API router. Supports path + query params.
+// e.g. /category/fruits-vegetables?sort=price_asc  →  { path, query, navigate }
 
 export type Route = {
   path: string;
   query: Record<string, string>;
 };
 
-function parseHash(): Route {
-  const hash = window.location.hash.slice(1) || '/';
-  const [path, queryString] = hash.split('?');
+function parseLocation(): Route {
+  const path = window.location.pathname || '/';
   const query: Record<string, string> = {};
-  if (queryString) {
-    new URLSearchParams(queryString).forEach((value, key) => {
-      query[key] = value;
-    });
-  }
-  return { path: path || '/', query };
+  new URLSearchParams(window.location.search).forEach((value, key) => {
+    query[key] = value;
+  });
+  return { path, query };
 }
 
 export function useRoute(): Route {
-  const [route, setRoute] = useState<Route>(parseHash());
+  const [route, setRoute] = useState<Route>(parseLocation());
 
   useEffect(() => {
-    const onHashChange = () => {
-      setRoute(parseHash());
+    const onLocationChange = () => {
+      setRoute(parseLocation());
       window.scrollTo(0, 0);
     };
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    window.addEventListener('popstate', onLocationChange);
+    return () => window.removeEventListener('popstate', onLocationChange);
   }, []);
 
   return route;
 }
 
 export function navigate(to: string) {
-  if (window.location.hash.slice(1) === to) {
+  const current = `${window.location.pathname}${window.location.search}`;
+  if (current === to) {
     window.scrollTo(0, 0);
     return;
   }
-  window.location.hash = to;
+  window.history.pushState({}, '', to);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 export function useNavigate() {
