@@ -4,6 +4,9 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   sequelize,
   connectDb,
@@ -28,6 +31,7 @@ import {
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'allinone-dev-secret';
+const distDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
 app.use(cors());
 app.use(express.json());
@@ -468,6 +472,15 @@ app.get('/api/health', asyncHandler(async (_req, res) => {
   await sequelize.authenticate();
   res.json({ ok: true, db: 'connected', orm: 'sequelize' });
 }));
+
+// Serve the production Vite build from the API process so the frontend and
+// `/api` share one origin. Vite's development server handles this in dev mode.
+if (existsSync(distDir)) {
+  app.use(express.static(distDir));
+  app.get('*', (_req, res) => {
+    res.sendFile(join(distDir, 'index.html'));
+  });
+}
 
 app.use((err, _req, res, _next) => {
   console.error('[API Error]', err.message);
