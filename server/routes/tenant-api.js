@@ -1,0 +1,429 @@
+/**
+ * server/routes/tenant-api.js
+ *
+ * All tenant-facing API routes.
+ * GUARDRAIL: Every single query in this file uses req.tenantModels.*
+ * NEVER import or use the global models from server/models/index.js here.
+ *
+ * These routes are mounted AFTER tenantResolver middleware, so req.tenantModels
+ * is always populated. requireTenant is used as an additional safety net.
+ *
+ * Auth uses req.tenantJwtSecret (per-tenant secret, decrypted per-request).
+ */
+
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { Op } from 'sequelize';
+
+const router = express.Router();
+const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+// ── Auth helpers (per-tenant JWT) ─────────────────────────────────────────────
+function tenantToken(user, secret) {
+  return jwt.sign(
+    { id: user.id, email: user.email, _type: 'tenant_customer' },
+    secret,
+    { expiresIn: '7d' },
+  );
+}
+
+function adminToken(admin, secret) {
+  return jwt.sign(
+    { id: admin.id, email: admin.email, role: admin.role, _type: 'tenant_admin' },
+    secret,
+    { expiresIn: '12h' },
+  );
+}
+
+function authOptional(req, _res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return next();
+  try {
+    req.user = jwt.verify(header.slice(7), req.tenantJwtSecret);
+  } catch { /* ignore */ }
+  next();
+}
+
+function authRequired(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    req.user = jwt.verify(header.slice(7), req.tenantJwtSecret);
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token.' });
+  }
+}
+
+const requireAdmin = asyncH(async (req, res, next) => {
+  // Check if this is a tenant_admin token
+  if (req.user?._type === 'tenant_admin') return next();
+  // Fallback: check profile table (for customer-flow admins)
+  const { Profile } = req.tenantModels;
+  const profile = await Profile.findByPk(req.user.id);
+  if (!profile || profile.app_role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required.' });
+  }
+  next();
+});
+
+function num(v) { return v === null || v === undefined ? 0 : Number(v); }
+function toPlain(row) { return row && typeof row.toJSON === 'function' ? row.toJSON() : row; }
+
+function mapProduct(row) {
+  const p = toPlain(row); if (!p) return null;
+  const cat = p.category ? toPlain(p.category) : null;
+  return {
+    id: p.id, category_id: p.category_id, name: p.name, slug: p.slug,
+    description: p.description, price: num(p.price), mrp: num(p.mrp),
+    unit: p.unit, stock_quantity: p.stock_quantity, brand: p.brand,
+    image_url: p.image_url, is_featured: p.is_featured,
+    is_out_of_stock: p.is_out_of_stock, rating: num(p.rating),
+    created_at: p.created_at,
+    category: cat ? { id: cat.id, name: cat.name, slug: cat.slug, icon_name: cat.icon_name, sort_order: cat.sort_order, is_active: cat.is_active } : undefined,
+  };
+}
+
+function mapOrder(row) {
+  const o = toPlain(row); if (!o) return null;
+  const order = {
+    id: o.id, user_id: o.user_id, order_number: o.order_number,
+    status: o.status, subtotal: num(o.subtotal), delivery_charge: num(o.delivery_charge),
+    discount: num(o.discount), total: num(o.total), payment_mode: o.payment_mode,
+    payment_status: o.payment_status, address_snapshot: o.address_snapshot,
+    delivery_slot: o.delivery_slot, notes: o.notes,
+    created_at: o.created_at, updated_at: o.updated_at,
+  };
+  const profile = o.profile ? toPlain(o.profile) : null;
+  if (profile) order.profile = { id: profile.id, full_name: profile.full_name, phone: profile.phone, email: profile.email };
+  return order;
+}
+
+// ── Health ────────────────────────────────────────────────────────────────────
+router.get('/api/health', asyncH(async (req, res) => {
+  await req.tenantDb.authenticate();
+  res.json({ ok: true, tenant: req.tenant?.domain, db: req.tenantModels.sequelize?.config?.database || 'connected' });
+}));
+
+// ── Store Info (public) ───────────────────────────────────────────────────────
+router.get('/api/store', asyncH(async (req, res) => {
+  const { StoreSetting } = req.tenantModels;
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  res.json(settings ? toPlain(settings) : {});
+}));
+
+// ── Customer Auth ─────────────────────────────────────────────────────────────
+router.post('/api/auth/signup', asyncH(async (req, res) => {
+  const { email, password, full_name, phone } = req.body;
+  const { User, Profile } = req.tenantModels;
+  const normalized = email?.trim().toLowerCase();
+  if (!normalized || !password || !full_name?.trim())
+    return res.status(400).json({ error: 'Email, password, and name are required.' });
+
+  const exists = await User.findOne({ where: { email: normalized } });
+  if (exists) return res.status(400).json({ error: 'Email already registered.' });
+
+  const hash = await bcrypt.hash(password, 10);
+  const result = await req.tenantDb.transaction(async (t) => {
+    const user = await User.create({ email: normalized, password_hash: hash }, { transaction: t });
+    await Profile.create({ id: user.id, full_name: full_name.trim(), phone: phone?.trim() || '', email: normalized, app_role: 'customer' }, { transaction: t });
+    return user;
+  });
+  res.json({ token: tenantToken(result, req.tenantJwtSecret), user: { id: result.id, email: result.email } });
+}));
+
+router.post('/api/auth/signin', asyncH(async (req, res) => {
+  const { email, password } = req.body;
+  const { User } = req.tenantModels;
+  const normalized = email?.trim().toLowerCase();
+  const user = await User.findOne({ where: { email: normalized } });
+  if (!user || !(await bcrypt.compare(password, user.password_hash)))
+    return res.status(401).json({ error: 'Invalid credentials.' });
+  res.json({ token: tenantToken(user, req.tenantJwtSecret), user: { id: user.id, email: user.email } });
+}));
+
+router.get('/api/auth/me', authRequired, asyncH(async (req, res) => {
+  const { Profile } = req.tenantModels;
+  const profile = await Profile.findByPk(req.user.id);
+  if (!profile) return res.status(404).json({ error: 'Profile not found.' });
+  res.json({ user: { id: req.user.id, email: req.user.email }, profile: toPlain(profile) });
+}));
+
+// ── Tenant Admin Auth ─────────────────────────────────────────────────────────
+router.post('/api/admin/auth/login', asyncH(async (req, res) => {
+  const { email, password } = req.body;
+  const { AdminUser } = req.tenantModels;
+  const normalized = email?.trim().toLowerCase();
+  const admin = await AdminUser.findOne({ where: { email: normalized } });
+  if (!admin || !(await bcrypt.compare(password, admin.password_hash)))
+    return res.status(401).json({ error: 'Invalid admin credentials.' });
+  res.json({ token: adminToken(admin, req.tenantJwtSecret), admin: { id: admin.id, email: admin.email, name: admin.name, role: admin.role } });
+}));
+
+router.get('/api/admin/auth/me', authRequired, asyncH(async (req, res) => {
+  if (req.user._type !== 'tenant_admin') return res.status(403).json({ error: 'Admin access required.' });
+  const { AdminUser } = req.tenantModels;
+  const admin = await AdminUser.findByPk(req.user.id);
+  if (!admin) return res.status(404).json({ error: 'Admin not found.' });
+  res.json({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
+}));
+
+// ── Categories ────────────────────────────────────────────────────────────────
+router.get('/api/categories', asyncH(async (req, res) => {
+  const { Category } = req.tenantModels;
+  const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
+  const rows = await Category.findAll({ where, order: [['sort_order', 'ASC']] });
+  res.json(rows.map(toPlain));
+}));
+
+router.post('/api/categories', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Category } = req.tenantModels;
+  const { name, slug, icon_name, sort_order, is_active } = req.body;
+  const row = await Category.create({ name, slug, icon_name: icon_name || 'ShoppingBag', sort_order: sort_order || 0, is_active: is_active ?? true });
+  res.json(toPlain(row));
+}));
+
+router.patch('/api/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Category } = req.tenantModels;
+  const { name, icon_name, sort_order, is_active } = req.body;
+  const row = await Category.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Category not found.' });
+  await row.update({ ...(name !== undefined && { name }), ...(icon_name !== undefined && { icon_name }), ...(sort_order !== undefined && { sort_order }), ...(is_active !== undefined && { is_active }) });
+  res.json(toPlain(row));
+}));
+
+router.delete('/api/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Category, Product } = req.tenantModels;
+  await Product.update({ category_id: null }, { where: { category_id: req.params.id } });
+  await Category.destroy({ where: { id: req.params.id } });
+  res.json({ ok: true });
+}));
+
+// ── Products ──────────────────────────────────────────────────────────────────
+router.get('/api/products', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const rows = await Product.findAll({ include: [{ model: Category, as: 'category' }], order: [['created_at', 'DESC']] });
+  res.json(rows.map(mapProduct));
+}));
+
+router.get('/api/products/slug/:slug', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const row = await Product.findOne({ where: { slug: req.params.slug }, include: [{ model: Category, as: 'category' }] });
+  res.json(mapProduct(row));
+}));
+
+router.post('/api/products', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const p = req.body;
+  const created = await Product.create({ category_id: p.category_id, name: p.name, slug: p.slug, description: p.description, price: p.price, mrp: p.mrp, unit: p.unit, stock_quantity: p.stock_quantity, brand: p.brand, image_url: p.image_url, is_featured: p.is_featured, is_out_of_stock: p.is_out_of_stock, rating: p.rating ?? 4.0 });
+  const full = await Product.findByPk(created.id, { include: [{ model: Category, as: 'category' }] });
+  res.json(mapProduct(full));
+}));
+
+router.patch('/api/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const row = await Product.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Product not found.' });
+  const fields = ['category_id','name','slug','description','price','mrp','unit','stock_quantity','brand','image_url','is_featured','is_out_of_stock','rating'];
+  const patch = {};
+  for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
+  await row.update(patch);
+  const full = await Product.findByPk(row.id, { include: [{ model: Category, as: 'category' }] });
+  res.json(mapProduct(full));
+}));
+
+router.delete('/api/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Product } = req.tenantModels;
+  await Product.destroy({ where: { id: req.params.id } });
+  res.json({ ok: true });
+}));
+
+// ── Banners ───────────────────────────────────────────────────────────────────
+router.get('/api/banners', asyncH(async (req, res) => {
+  const { Banner } = req.tenantModels;
+  const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
+  res.json((await Banner.findAll({ where, order: [['sort_order', 'ASC']] })).map(toPlain));
+}));
+
+router.post('/api/banners', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Banner } = req.tenantModels;
+  const b = req.body;
+  res.json(toPlain(await Banner.create({ title: b.title, subtitle: b.subtitle, image_url: b.image_url, cta_label: b.cta_label, cta_link: b.cta_link, sort_order: b.sort_order, is_active: b.is_active })));
+}));
+
+router.patch('/api/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Banner } = req.tenantModels;
+  const row = await Banner.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Banner not found.' });
+  const patch = {};
+  for (const key of ['title','subtitle','image_url','cta_label','cta_link','sort_order','is_active']) if (req.body[key] !== undefined) patch[key] = req.body[key];
+  await row.update(patch);
+  res.json(toPlain(row));
+}));
+
+router.delete('/api/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Banner } = req.tenantModels;
+  await Banner.destroy({ where: { id: req.params.id } });
+  res.json({ ok: true });
+}));
+
+// ── Delivery Settings ─────────────────────────────────────────────────────────
+router.get('/api/delivery-settings', asyncH(async (req, res) => {
+  const { DeliverySetting } = req.tenantModels;
+  const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
+  const rows = await DeliverySetting.findAll({ where, order: [['pincode', 'ASC']] });
+  res.json(rows.map((r) => { const d = toPlain(r); return { ...d, delivery_charge: num(d.delivery_charge), min_order_for_free_delivery: num(d.min_order_for_free_delivery) }; }));
+}));
+
+router.post('/api/delivery-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { DeliverySetting } = req.tenantModels;
+  const d = req.body;
+  const row = await DeliverySetting.create({ pincode: d.pincode, area_name: d.area_name, delivery_charge: d.delivery_charge, min_order_for_free_delivery: d.min_order_for_free_delivery, is_active: d.is_active });
+  const plain = toPlain(row);
+  res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
+}));
+
+router.patch('/api/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { DeliverySetting } = req.tenantModels;
+  const row = await DeliverySetting.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Delivery setting not found.' });
+  const patch = {};
+  for (const key of ['pincode','area_name','delivery_charge','min_order_for_free_delivery','is_active']) if (req.body[key] !== undefined) patch[key] = req.body[key];
+  await row.update(patch);
+  const plain = toPlain(row);
+  res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
+}));
+
+router.delete('/api/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { DeliverySetting } = req.tenantModels;
+  await DeliverySetting.destroy({ where: { id: req.params.id } });
+  res.json({ ok: true });
+}));
+
+// ── Addresses ─────────────────────────────────────────────────────────────────
+router.get('/api/addresses', authRequired, asyncH(async (req, res) => {
+  const { Address } = req.tenantModels;
+  res.json((await Address.findAll({ where: { user_id: req.user.id }, order: [['is_default','DESC']] })).map(toPlain));
+}));
+
+router.post('/api/addresses', authRequired, asyncH(async (req, res) => {
+  const { Address } = req.tenantModels;
+  const a = req.body || {};
+  if (!a.full_name || !a.phone || !a.line1 || !a.city || !a.pincode)
+    return res.status(400).json({ error: 'Please fill all required address fields.' });
+  const row = await Address.create({ user_id: req.user.id, label: a.label || 'Home', full_name: a.full_name, phone: a.phone, line1: a.line1, line2: a.line2 || null, city: a.city, pincode: a.pincode, is_default: a.is_default ?? false });
+  res.json(toPlain(row));
+}));
+
+router.delete('/api/addresses/:id', authRequired, asyncH(async (req, res) => {
+  const { Address } = req.tenantModels;
+  await Address.destroy({ where: { id: req.params.id, user_id: req.user.id } });
+  res.json({ ok: true });
+}));
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+router.get('/api/orders', authRequired, asyncH(async (req, res) => {
+  const { Order, Profile } = req.tenantModels;
+  const isAdmin = req.user._type === 'tenant_admin' || (await Profile.findByPk(req.user.id))?.app_role === 'admin';
+  const where   = isAdmin ? {} : { user_id: req.user.id };
+  const rows    = await Order.findAll({ where, include: [{ model: Profile, as: 'profile' }], order: [['created_at','DESC']] });
+  res.json(rows.map(mapOrder));
+}));
+
+router.get('/api/orders/by-number/:orderNumber', authOptional, asyncH(async (req, res) => {
+  const { Order, Profile } = req.tenantModels;
+  const order = await Order.findOne({ where: { order_number: req.params.orderNumber } });
+  if (!order) return res.json(null);
+  if (req.user && req.user.id !== order.user_id) {
+    if (req.user._type !== 'tenant_admin') {
+      const profile = await Profile.findByPk(req.user.id);
+      if (profile?.app_role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    }
+  }
+  res.json(mapOrder(order));
+}));
+
+router.post('/api/orders', authRequired, asyncH(async (req, res) => {
+  const { Order, OrderItem, Product } = req.tenantModels;
+  const { order, items } = req.body;
+  if (!order || !Array.isArray(items) || items.length === 0)
+    return res.status(400).json({ error: 'Order and items are required.' });
+
+  const productIds = [...new Set(items.map((i) => i.product_id).filter(Boolean))];
+  const existing   = await Product.findAll({ where: { id: { [Op.in]: productIds } }, attributes: ['id','stock_quantity'] });
+  const existingIds = new Set(existing.map((p) => p.id));
+  const missing    = productIds.filter((id) => !existingIds.has(id));
+  if (missing.length) return res.status(400).json({ error: 'Some products are no longer available.', missing_product_ids: missing });
+
+  const created = await req.tenantDb.transaction(async (t) => {
+    const createdOrder = await Order.create({ user_id: req.user.id, order_number: order.order_number, status: order.status, subtotal: order.subtotal, delivery_charge: order.delivery_charge, discount: order.discount, total: order.total, payment_mode: order.payment_mode, payment_status: order.payment_status, address_snapshot: order.address_snapshot || {}, delivery_slot: order.delivery_slot, notes: order.notes }, { transaction: t });
+    for (const item of items) {
+      await OrderItem.create({ order_id: createdOrder.id, product_id: item.product_id, product_name: item.product_name, product_image: item.product_image, unit: item.unit, price: item.price, quantity: item.quantity, subtotal: item.subtotal }, { transaction: t });
+      const product = await Product.findByPk(item.product_id, { transaction: t, lock: t.LOCK.UPDATE });
+      if (product) {
+        const nextStock = Math.max(product.stock_quantity - item.quantity, 0);
+        await product.update({ stock_quantity: nextStock, is_out_of_stock: nextStock <= 0 }, { transaction: t });
+      }
+    }
+    return createdOrder;
+  });
+  res.json(mapOrder(created));
+}));
+
+router.patch('/api/orders/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Order } = req.tenantModels;
+  const { status } = req.body;
+  const row = await Order.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Order not found.' });
+  await row.update({ status, updated_at: new Date() });
+  res.json(mapOrder(row));
+}));
+
+router.get('/api/order-items', authRequired, asyncH(async (req, res) => {
+  const { OrderItem } = req.tenantModels;
+  const rows = await OrderItem.findAll({ where: { order_id: req.query.orderId } });
+  res.json(rows.map((r) => { const item = toPlain(r); return { ...item, price: num(item.price), subtotal: num(item.subtotal) }; }));
+}));
+
+// ── Customers (admin) ─────────────────────────────────────────────────────────
+router.get('/api/customers', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Profile } = req.tenantModels;
+  res.json((await Profile.findAll({ where: { app_role: 'customer' }, order: [['created_at','DESC']] })).map(toPlain));
+}));
+
+router.get('/api/customers/count', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Profile } = req.tenantModels;
+  res.json({ count: await Profile.count({ where: { app_role: 'customer' } }) });
+}));
+
+router.patch('/api/profiles/me', authRequired, asyncH(async (req, res) => {
+  const { Profile } = req.tenantModels;
+  const { full_name, phone } = req.body;
+  await Profile.update({ full_name, phone }, { where: { id: req.user.id } });
+  res.json(toPlain(await Profile.findByPk(req.user.id)));
+}));
+
+// ── Store Settings (admin) ────────────────────────────────────────────────────
+router.get('/api/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { StoreSetting } = req.tenantModels;
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  res.json(settings ? toPlain(settings) : {});
+}));
+
+router.patch('/api/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { StoreSetting } = req.tenantModels;
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  const fields = ['store_name','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
+  const patch = {};
+  for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
+  if (settings) {
+    await settings.update(patch);
+    res.json(toPlain(settings));
+  } else {
+    const row = await StoreSetting.create(patch);
+    res.json(toPlain(row));
+  }
+}));
+
+export default router;

@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-glow: rgba(14, 165, 233, 0.15);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #0f172a;
+  color: #f1f5f9;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism cards */
+.glass {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1e293b; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+/* Status badges */
+.badge-active      { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
+.badge-trial       { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
+.badge-suspended   { @apply bg-amber-500/20 text-amber-400 border border-amber-500/30; }
+.badge-cancelled   { @apply bg-rose-500/20 text-rose-400 border border-rose-500/30; }
+.badge-provisioning { @apply bg-purple-500/20 text-purple-400 border border-purple-500/30; }
+.badge-provisioning_failed { @apply bg-rose-700/30 text-rose-300 border border-rose-600/40; }
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fadeInUp 0.3s ease-out both; }
+
+@keyframes pulse-glow {
+  0%,100% { box-shadow: 0 0 0 0 var(--brand-glow); }
+  50%      { box-shadow: 0 0 20px 4px var(--brand-glow); }
+}
+.animate-glow { animation: pulse-glow 2s ease-in-out infinite; }
