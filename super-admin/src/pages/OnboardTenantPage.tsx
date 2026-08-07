@@ -18,6 +18,13 @@ interface FormData {
   initialStatus: string;
 }
 
+const Field = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
+  <div>
+    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">{label}</label>
+    <input {...props} className="w-full bg-surface-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-500/60 transition-colors" />
+  </div>
+);
+
 export function OnboardTenantPage({ onBack, onSuccess }: Props) {
   const [step, setStep] = useState<Step>('form');
   const [form, setForm] = useState<FormData>({
@@ -47,13 +54,6 @@ export function OnboardTenantPage({ onBack, onSuccess }: Props) {
     if (result) navigator.clipboard.writeText(result.credentials.adminTempPassword)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
   };
-
-  const Field = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
-    <div>
-      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">{label}</label>
-      <input {...props} className="w-full bg-surface-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-500/60 transition-colors" />
-    </div>
-  );
 
   // ── Step: Form ────────────────────────────────────────────────────────────
   if (step === 'form') return (
