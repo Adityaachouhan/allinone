@@ -9,7 +9,7 @@ export function Footer({ categories }: { categories: Category[] }) {
   return (
     <footer className="mt-12 border-t border-gray-200 bg-white">
       {/* Trust badges */}
-      <div className="border-b border-gray-100">
+      <div className="hidden border-b border-gray-100 sm:block">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-4 px-4 py-6 sm:grid-cols-4">
           {[
             { title: 'Fresh Products', desc: 'Hand-picked daily' },

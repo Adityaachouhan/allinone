@@ -21,10 +21,10 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group card overflow-hidden flex flex-col transition-shadow hover:shadow-card-hover">
+    <div className="group card overflow-hidden flex flex-col h-full transition-shadow hover:shadow-card-hover bg-white">
       <button
         onClick={() => navigate(`/product/${product.slug}`)}
-        className="relative aspect-square overflow-hidden bg-gray-50"
+        className="relative aspect-square overflow-hidden bg-white shrink-0"
         aria-label={`View ${product.name}`}
       >
         {product.image_url ? (
@@ -32,7 +32,7 @@ export function ProductCard({ product }: { product: Product }) {
             src={product.image_url}
             alt={product.name}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="h-full w-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-gray-300">
@@ -54,21 +54,21 @@ export function ProductCard({ product }: { product: Product }) {
       </button>
 
       <div className="flex flex-1 flex-col p-3">
-        <p className="text-xs text-gray-500 mb-0.5">{product.brand || 'All In One'}</p>
+        <p className="text-xs text-gray-500 mb-0.5 h-4 truncate">{product.brand || 'All In One'}</p>
         <button
           onClick={() => navigate(`/product/${product.slug}`)}
-          className="text-sm font-medium text-gray-900 line-clamp-2 text-left hover:text-primary-700"
+          className="text-sm font-medium text-gray-900 line-clamp-2 text-left hover:text-primary-700 min-h-[40px]"
         >
           {product.name}
         </button>
 
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1 flex items-center gap-1.5 h-4">
           <StarRating rating={product.rating} size={12} />
           <span className="text-xs text-gray-400">{product.rating.toFixed(1)}</span>
         </div>
 
-        <div className="mt-auto pt-2">
-          <div className="flex items-baseline gap-2">
+        <div className="mt-auto pt-2 flex flex-col justify-end">
+          <div className="flex items-baseline gap-2 h-6">
             <span className="text-base font-semibold text-gray-900">
               {formatCurrency(product.price)}
             </span>
