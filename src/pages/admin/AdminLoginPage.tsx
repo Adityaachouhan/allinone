@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { ShieldCheck, Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
-import * as db from '@/lib/db';
 import { useNavigate } from '@/lib/router';
-import { useAuth } from '@/context/AuthContext';
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
-  const { refreshProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,15 +14,15 @@ export function AdminLoginPage() {
     setError('');
     setLoading(true);
     try {
-      const session = await db.signIn(email, password);
-      const profile = await db.getProfile(session.user.id);
-      if (profile?.app_role !== 'admin') {
-        db.signOut();
-        setError('This account does not have admin access.');
-        setLoading(false);
-        return;
-      }
-      await refreshProfile();
+      const res = await fetch('/api/admin/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Login failed');
+      // Store token using the same key api() reads for all subsequent requests
+      localStorage.setItem('aio_token', data.token);
       navigate('/admin/dashboard');
     } catch {
       setError('Incorrect email or password.');

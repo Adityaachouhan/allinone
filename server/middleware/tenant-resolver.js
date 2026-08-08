@@ -4,8 +4,8 @@
  * THE core isolation middleware. Runs on every tenant-facing request.
  *
  * Steps:
- *  1. Read req.hostname (from Host header, port stripped by Express)
- *  2. Look up hostname in master DB tenants table
+ *  1. Read req.headers.host (includes port, e.g. "72.60.222.141:9100")
+ *  2. Look up host in master DB tenants table by domain
  *  3. Validate tenant status
  *  4. Decrypt DB password
  *  5. Get or create tenant Sequelize instance from pool (keyed by domain)
@@ -17,6 +17,12 @@
  *
  * GUARDRAIL: Fail closed — if domain is not found or tenant is not active,
  * the request is BLOCKED (4xx response). Never allow through.
+ *
+ * PORT-BASED ROUTING:
+ *  Without real domains, tenants are identified by IP:PORT.
+ *  e.g. domain stored in DB = "72.60.222.141:9100"
+ *  Each shop gets its own nginx port → nginx proxies to Express on 9095
+ *  with the original Host header (IP:PORT) preserved.
  */
 
 import { Tenant } from '../master-db/models.js';
@@ -31,15 +37,24 @@ const BYPASS_HOSTS = new Set([
   '::1',
 ]);
 
+function isLocalhostHost(host) {
+  if (!host) return false;
+  // Strip port and check: covers localhost, localhost:PORT, 127.0.0.1, 127.0.0.1:PORT
+  const bare = host.split(':')[0];
+  return BYPASS_HOSTS.has(bare);
+}
+
 /**
  * Express middleware that resolves the current tenant from the Host header.
+ * Uses req.headers.host (includes port) so IP:PORT routing works without domains.
  * Attaches req.tenant, req.tenantDb, req.tenantModels.
  */
 export async function tenantResolver(req, res, next) {
-  const hostname = req.hostname; // Express strips port automatically
+  // Use full Host header (includes port) — e.g. "72.60.222.141:9100"
+  const host = req.headers.host || req.hostname;
 
   // Bypass for health checks and SA routes on localhost
-  if (BYPASS_HOSTS.has(hostname)) {
+  if (isLocalhostHost(host)) {
     req.tenant       = null;
     req.tenantDb     = null;
     req.tenantModels = null;
@@ -47,8 +62,8 @@ export async function tenantResolver(req, res, next) {
   }
 
   try {
-    // ── 1. Look up tenant by domain ─────────────────────────────────────────
-    const tenant = await Tenant.findOne({ where: { domain: hostname } });
+    // ── 1. Look up tenant by domain (stored as IP:PORT or real domain) ───────
+    const tenant = await Tenant.findOne({ where: { domain: host } });
 
     if (!tenant) {
       return res.status(404).send(`
