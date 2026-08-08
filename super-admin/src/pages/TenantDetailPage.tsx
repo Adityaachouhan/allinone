@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { tenantsApi, type Tenant, type AuditLog, type Plan } from '../lib/api';
+import { tenantsApi, type Tenant, type AuditLog, type Plan, type TenantStatus } from '../lib/api';
 import {
   ArrowLeft, Globe, Database, Mail, Phone, Calendar, RefreshCw,
   Key, Power, PowerOff, Copy, Check, ExternalLink, Shield,
@@ -29,7 +29,7 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
   };
   useEffect(() => { load(); }, [tenantId]);
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusChange = async (status: TenantStatus) => {
     if (!tenant) return;
     setBusy('status');
     try {

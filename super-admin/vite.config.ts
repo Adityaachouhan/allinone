@@ -21,4 +21,8 @@ export default defineConfig({
     outDir: '../dist-superadmin',
     emptyOutDir: true,
   },
+  // ── Production base path ──────────────────────────────────────────────────
+  // When served via Nginx at /superadmin, all assets must be prefixed with /superadmin/
+  // This only affects production builds (npm run build), not the dev server.
+  base: process.env.NODE_ENV === 'production' ? '/superadmin/' : '/',
 });
