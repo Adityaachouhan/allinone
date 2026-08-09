@@ -94,7 +94,7 @@ router.post('/', asyncH(async (req, res) => {
   res.status(201).json({
     tenant: safeTenant(tenant),
     credentials: {
-      loginUrl:         `https://${result.domain}/admin`,
+      loginUrl:         `http://${result.domain}/admin`,
       adminEmail:       result.adminEmail,
       adminTempPassword: result.adminTempPassword,   // shown ONCE — save it
     },
