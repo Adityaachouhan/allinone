@@ -101,20 +101,20 @@ function mapOrder(row) {
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
-router.get('/api/health', asyncH(async (req, res) => {
+router.get('/health', asyncH(async (req, res) => {
   await req.tenantDb.authenticate();
   res.json({ ok: true, tenant: req.tenant?.domain, db: req.tenantModels.sequelize?.config?.database || 'connected' });
 }));
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
-router.get('/api/store', asyncH(async (req, res) => {
+router.get('/store', asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
   const [settings] = await StoreSetting.findAll({ limit: 1 });
   res.json(settings ? toPlain(settings) : {});
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
-router.post('/api/auth/signup', asyncH(async (req, res) => {
+router.post('/auth/signup', asyncH(async (req, res) => {
   const { email, password, full_name, phone } = req.body;
   const { User, Profile } = req.tenantModels;
   const normalized = email?.trim().toLowerCase();
@@ -133,7 +133,7 @@ router.post('/api/auth/signup', asyncH(async (req, res) => {
   res.json({ token: tenantToken(result, req.tenantJwtSecret), user: { id: result.id, email: result.email } });
 }));
 
-router.post('/api/auth/signin', asyncH(async (req, res) => {
+router.post('/auth/signin', asyncH(async (req, res) => {
   const { email, password } = req.body;
   const { User } = req.tenantModels;
   const normalized = email?.trim().toLowerCase();
@@ -143,7 +143,7 @@ router.post('/api/auth/signin', asyncH(async (req, res) => {
   res.json({ token: tenantToken(user, req.tenantJwtSecret), user: { id: user.id, email: user.email } });
 }));
 
-router.get('/api/auth/me', authRequired, asyncH(async (req, res) => {
+router.get('/auth/me', authRequired, asyncH(async (req, res) => {
   const { Profile } = req.tenantModels;
   const profile = await Profile.findByPk(req.user.id);
   if (!profile) return res.status(404).json({ error: 'Profile not found.' });
@@ -151,7 +151,7 @@ router.get('/api/auth/me', authRequired, asyncH(async (req, res) => {
 }));
 
 // ── Tenant Admin Auth ─────────────────────────────────────────────────────────
-router.post('/api/admin/auth/login', asyncH(async (req, res) => {
+router.post('/admin/auth/login', asyncH(async (req, res) => {
   const { email, password } = req.body;
   const { AdminUser } = req.tenantModels;
   const normalized = email?.trim().toLowerCase();
@@ -161,7 +161,7 @@ router.post('/api/admin/auth/login', asyncH(async (req, res) => {
   res.json({ token: adminToken(admin, req.tenantJwtSecret), admin: { id: admin.id, email: admin.email, name: admin.name, role: admin.role } });
 }));
 
-router.get('/api/admin/auth/me', authRequired, asyncH(async (req, res) => {
+router.get('/admin/auth/me', authRequired, asyncH(async (req, res) => {
   if (req.user._type !== 'tenant_admin') return res.status(403).json({ error: 'Admin access required.' });
   const { AdminUser } = req.tenantModels;
   const admin = await AdminUser.findByPk(req.user.id);
@@ -170,21 +170,21 @@ router.get('/api/admin/auth/me', authRequired, asyncH(async (req, res) => {
 }));
 
 // ── Categories ────────────────────────────────────────────────────────────────
-router.get('/api/categories', asyncH(async (req, res) => {
+router.get('/categories', asyncH(async (req, res) => {
   const { Category } = req.tenantModels;
   const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
   const rows = await Category.findAll({ where, order: [['sort_order', 'ASC']] });
   res.json(rows.map(toPlain));
 }));
 
-router.post('/api/categories', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.post('/categories', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Category } = req.tenantModels;
   const { name, slug, icon_name, sort_order, is_active } = req.body;
   const row = await Category.create({ name, slug, icon_name: icon_name || 'ShoppingBag', sort_order: sort_order || 0, is_active: is_active ?? true });
   res.json(toPlain(row));
 }));
 
-router.patch('/api/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Category } = req.tenantModels;
   const { name, icon_name, sort_order, is_active } = req.body;
   const row = await Category.findByPk(req.params.id);
@@ -193,7 +193,7 @@ router.patch('/api/categories/:id', authRequired, requireAdmin, asyncH(async (re
   res.json(toPlain(row));
 }));
 
-router.delete('/api/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.delete('/categories/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Category, Product } = req.tenantModels;
   await Product.update({ category_id: null }, { where: { category_id: req.params.id } });
   await Category.destroy({ where: { id: req.params.id } });
@@ -201,19 +201,19 @@ router.delete('/api/categories/:id', authRequired, requireAdmin, asyncH(async (r
 }));
 
 // ── Products ──────────────────────────────────────────────────────────────────
-router.get('/api/products', asyncH(async (req, res) => {
+router.get('/products', asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
   const rows = await Product.findAll({ include: [{ model: Category, as: 'category' }], order: [['created_at', 'DESC']] });
   res.json(rows.map(mapProduct));
 }));
 
-router.get('/api/products/slug/:slug', asyncH(async (req, res) => {
+router.get('/products/slug/:slug', asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
   const row = await Product.findOne({ where: { slug: req.params.slug }, include: [{ model: Category, as: 'category' }] });
   res.json(mapProduct(row));
 }));
 
-router.post('/api/products', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.post('/products', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
   const p = req.body;
   const created = await Product.create({ category_id: p.category_id, name: p.name, slug: p.slug, description: p.description, price: p.price, mrp: p.mrp, unit: p.unit, stock_quantity: p.stock_quantity, brand: p.brand, image_url: p.image_url, is_featured: p.is_featured, is_out_of_stock: p.is_out_of_stock, rating: p.rating ?? 4.0 });
@@ -221,7 +221,7 @@ router.post('/api/products', authRequired, requireAdmin, asyncH(async (req, res)
   res.json(mapProduct(full));
 }));
 
-router.patch('/api/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
   const row = await Product.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Product not found.' });
@@ -233,26 +233,26 @@ router.patch('/api/products/:id', authRequired, requireAdmin, asyncH(async (req,
   res.json(mapProduct(full));
 }));
 
-router.delete('/api/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.delete('/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Product } = req.tenantModels;
   await Product.destroy({ where: { id: req.params.id } });
   res.json({ ok: true });
 }));
 
 // ── Banners ───────────────────────────────────────────────────────────────────
-router.get('/api/banners', asyncH(async (req, res) => {
+router.get('/banners', asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
   res.json((await Banner.findAll({ where, order: [['sort_order', 'ASC']] })).map(toPlain));
 }));
 
-router.post('/api/banners', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.post('/banners', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   const b = req.body;
   res.json(toPlain(await Banner.create({ title: b.title, subtitle: b.subtitle, image_url: b.image_url, cta_label: b.cta_label, cta_link: b.cta_link, sort_order: b.sort_order, is_active: b.is_active })));
 }));
 
-router.patch('/api/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   const row = await Banner.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Banner not found.' });
@@ -262,21 +262,21 @@ router.patch('/api/banners/:id', authRequired, requireAdmin, asyncH(async (req, 
   res.json(toPlain(row));
 }));
 
-router.delete('/api/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.delete('/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   await Banner.destroy({ where: { id: req.params.id } });
   res.json({ ok: true });
 }));
 
 // ── Delivery Settings ─────────────────────────────────────────────────────────
-router.get('/api/delivery-settings', asyncH(async (req, res) => {
+router.get('/delivery-settings', asyncH(async (req, res) => {
   const { DeliverySetting } = req.tenantModels;
   const where = req.query.activeOnly === 'true' ? { is_active: true } : {};
   const rows = await DeliverySetting.findAll({ where, order: [['pincode', 'ASC']] });
   res.json(rows.map((r) => { const d = toPlain(r); return { ...d, delivery_charge: num(d.delivery_charge), min_order_for_free_delivery: num(d.min_order_for_free_delivery) }; }));
 }));
 
-router.post('/api/delivery-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.post('/delivery-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { DeliverySetting } = req.tenantModels;
   const d = req.body;
   const row = await DeliverySetting.create({ pincode: d.pincode, area_name: d.area_name, delivery_charge: d.delivery_charge, min_order_for_free_delivery: d.min_order_for_free_delivery, is_active: d.is_active });
@@ -284,7 +284,7 @@ router.post('/api/delivery-settings', authRequired, requireAdmin, asyncH(async (
   res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
 }));
 
-router.patch('/api/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { DeliverySetting } = req.tenantModels;
   const row = await DeliverySetting.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Delivery setting not found.' });
@@ -295,19 +295,19 @@ router.patch('/api/delivery-settings/:id', authRequired, requireAdmin, asyncH(as
   res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
 }));
 
-router.delete('/api/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.delete('/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { DeliverySetting } = req.tenantModels;
   await DeliverySetting.destroy({ where: { id: req.params.id } });
   res.json({ ok: true });
 }));
 
 // ── Addresses ─────────────────────────────────────────────────────────────────
-router.get('/api/addresses', authRequired, asyncH(async (req, res) => {
+router.get('/addresses', authRequired, asyncH(async (req, res) => {
   const { Address } = req.tenantModels;
   res.json((await Address.findAll({ where: { user_id: req.user.id }, order: [['is_default','DESC']] })).map(toPlain));
 }));
 
-router.post('/api/addresses', authRequired, asyncH(async (req, res) => {
+router.post('/addresses', authRequired, asyncH(async (req, res) => {
   const { Address } = req.tenantModels;
   const a = req.body || {};
   if (!a.full_name || !a.phone || !a.line1 || !a.city || !a.pincode)
@@ -316,14 +316,14 @@ router.post('/api/addresses', authRequired, asyncH(async (req, res) => {
   res.json(toPlain(row));
 }));
 
-router.delete('/api/addresses/:id', authRequired, asyncH(async (req, res) => {
+router.delete('/addresses/:id', authRequired, asyncH(async (req, res) => {
   const { Address } = req.tenantModels;
   await Address.destroy({ where: { id: req.params.id, user_id: req.user.id } });
   res.json({ ok: true });
 }));
 
 // ── Orders ────────────────────────────────────────────────────────────────────
-router.get('/api/orders', authRequired, asyncH(async (req, res) => {
+router.get('/orders', authRequired, asyncH(async (req, res) => {
   const { Order, Profile } = req.tenantModels;
   const isAdmin = req.user._type === 'tenant_admin' || (await Profile.findByPk(req.user.id))?.app_role === 'admin';
   const where   = isAdmin ? {} : { user_id: req.user.id };
@@ -331,7 +331,7 @@ router.get('/api/orders', authRequired, asyncH(async (req, res) => {
   res.json(rows.map(mapOrder));
 }));
 
-router.get('/api/orders/by-number/:orderNumber', authOptional, asyncH(async (req, res) => {
+router.get('/orders/by-number/:orderNumber', authOptional, asyncH(async (req, res) => {
   const { Order, Profile } = req.tenantModels;
   const order = await Order.findOne({ where: { order_number: req.params.orderNumber } });
   if (!order) return res.json(null);
@@ -344,7 +344,7 @@ router.get('/api/orders/by-number/:orderNumber', authOptional, asyncH(async (req
   res.json(mapOrder(order));
 }));
 
-router.post('/api/orders', authRequired, asyncH(async (req, res) => {
+router.post('/orders', authRequired, asyncH(async (req, res) => {
   const { Order, OrderItem, Product } = req.tenantModels;
   const { order, items } = req.body;
   if (!order || !Array.isArray(items) || items.length === 0)
@@ -371,7 +371,7 @@ router.post('/api/orders', authRequired, asyncH(async (req, res) => {
   res.json(mapOrder(created));
 }));
 
-router.patch('/api/orders/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/orders/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Order } = req.tenantModels;
   const { status } = req.body;
   const row = await Order.findByPk(req.params.id);
@@ -380,24 +380,24 @@ router.patch('/api/orders/:id', authRequired, requireAdmin, asyncH(async (req, r
   res.json(mapOrder(row));
 }));
 
-router.get('/api/order-items', authRequired, asyncH(async (req, res) => {
+router.get('/order-items', authRequired, asyncH(async (req, res) => {
   const { OrderItem } = req.tenantModels;
   const rows = await OrderItem.findAll({ where: { order_id: req.query.orderId } });
   res.json(rows.map((r) => { const item = toPlain(r); return { ...item, price: num(item.price), subtotal: num(item.subtotal) }; }));
 }));
 
 // ── Customers (admin) ─────────────────────────────────────────────────────────
-router.get('/api/customers', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.get('/customers', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Profile } = req.tenantModels;
   res.json((await Profile.findAll({ where: { app_role: 'customer' }, order: [['created_at','DESC']] })).map(toPlain));
 }));
 
-router.get('/api/customers/count', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.get('/customers/count', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Profile } = req.tenantModels;
   res.json({ count: await Profile.count({ where: { app_role: 'customer' } }) });
 }));
 
-router.patch('/api/profiles/me', authRequired, asyncH(async (req, res) => {
+router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
   const { Profile } = req.tenantModels;
   const { full_name, phone } = req.body;
   await Profile.update({ full_name, phone }, { where: { id: req.user.id } });
@@ -405,13 +405,13 @@ router.patch('/api/profiles/me', authRequired, asyncH(async (req, res) => {
 }));
 
 // ── Store Settings (admin) ────────────────────────────────────────────────────
-router.get('/api/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
   const [settings] = await StoreSetting.findAll({ limit: 1 });
   res.json(settings ? toPlain(settings) : {});
 }));
 
-router.patch('/api/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
   const [settings] = await StoreSetting.findAll({ limit: 1 });
   const fields = ['store_name','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
