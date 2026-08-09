@@ -23,7 +23,8 @@ export function AdminLoginPage() {
       if (!res.ok) throw new Error(data.error || 'Login failed');
       // Store token using the same key api() reads for all subsequent requests
       localStorage.setItem('aio_token', data.token);
-      navigate('/admin/dashboard');
+      localStorage.setItem('aio_session', JSON.stringify({ user: { id: data.admin.id, email: data.admin.email } }));
+      window.location.href = '/admin/dashboard';
     } catch {
       setError('Incorrect email or password.');
       setLoading(false);
