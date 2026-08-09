@@ -14,6 +14,7 @@ const SESSION_KEY = 'aio_session';
 
 export type LocalSession = {
   user: { id: string; email: string };
+  isAdmin?: boolean;
 };
 
 // ---------- Auth ----------
@@ -32,8 +33,13 @@ export function setSession(session: LocalSession | null) {
   else localStorage.removeItem(SESSION_KEY);
 }
 
-export async function getProfile(userId: string): Promise<Profile | null> {
+export async function getProfile(userId: string, isAdmin?: boolean): Promise<Profile | null> {
   try {
+    if (isAdmin) {
+      const data = await api<any>('/admin/auth/me');
+      if (data.id === userId) return { ...data, app_role: 'admin' } as Profile;
+      return null;
+    }
     const data = await api<{ profile: Profile }>('/auth/me');
     if (data.profile?.id === userId) return data.profile;
     return data.profile ?? null;
