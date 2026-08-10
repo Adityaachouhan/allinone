@@ -124,6 +124,7 @@ export async function provisionTenant({
   initialStatus = 'trial',
   actorId,
   actorEmail,
+  adminPassword,
 }) {
   // ── 1. Validate inputs ────────────────────────────────────────────────────
   if (!businessName?.trim()) throw new Error('businessName is required.');
@@ -151,7 +152,7 @@ export async function provisionTenant({
   const dbRole  = `role_${finalSlug}`;
   const dbPass  = generatePassword(24);
   const jwtSec  = generatePassword(32);
-  const adminPass = generatePassword(16);
+  const adminPass = adminPassword?.trim() || generatePassword(16);
 
   let tenantRecord   = null;
   let dbCreated      = false;
@@ -172,6 +173,7 @@ export async function provisionTenant({
       db_user:               dbRole,
       db_password_encrypted: encrypt(dbPass),
       jwt_secret_encrypted:  encrypt(jwtSec),
+      admin_password_encrypted: encrypt(adminPass),
       status:                'provisioning',
     });
 

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS tenants (
   db_user              text        NOT NULL,           -- per-tenant PG role
   db_password_encrypted text       NOT NULL,           -- AES-256-GCM, MASTER_ENCRYPTION_KEY
   jwt_secret_encrypted  text       NOT NULL,           -- per-tenant JWT secret (encrypted)
+  admin_password_encrypted text    NOT NULL DEFAULT '', -- AES-256-GCM for viewing in super admin UI
   status               text        NOT NULL DEFAULT 'provisioning',
     -- 'provisioning' | 'active' | 'trial' | 'suspended' | 'cancelled' | 'provisioning_failed'
   created_at           timestamptz NOT NULL DEFAULT now(),

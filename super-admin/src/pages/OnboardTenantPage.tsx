@@ -16,6 +16,7 @@ interface FormData {
   ownerEmail: string;
   domain: string;
   initialStatus: string;
+  adminPassword?: string;
 }
 
 const Field = ({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) => (
@@ -28,7 +29,7 @@ const Field = ({ label, ...props }: { label: string } & React.InputHTMLAttribute
 export function OnboardTenantPage({ onBack, onSuccess }: Props) {
   const [step, setStep] = useState<Step>('form');
   const [form, setForm] = useState<FormData>({
-    businessName: '', ownerName: '', ownerPhone: '', ownerEmail: '', domain: '', initialStatus: 'trial',
+    businessName: '', ownerName: '', ownerPhone: '', ownerEmail: '', domain: '', initialStatus: 'trial', adminPassword: ''
   });
   const [result, setResult] = useState<{ tenant: { id: string; business_name: string }; credentials: { loginUrl: string; adminEmail: string; adminTempPassword: string } } | null>(null);
   const [error, setError]   = useState('');
@@ -83,6 +84,10 @@ export function OnboardTenantPage({ onBack, onSuccess }: Props) {
             <div className="col-span-2">
               <Field label="Domain *" placeholder="e.g. bhardwajmart.com" value={form.domain} onChange={set('domain')} required />
               <p className="text-[11px] text-slate-600 mt-1.5">Enter the full domain without http://. DNS and SSL setup is done separately.</p>
+            </div>
+            <div className="col-span-2">
+              <Field label="Admin Password (Optional)" placeholder="Leave blank to auto-generate" value={form.adminPassword} onChange={set('adminPassword')} />
+              <p className="text-[11px] text-slate-600 mt-1.5">Manually set the shop owner's initial login password, or let the system generate a secure one.</p>
             </div>
           </div>
 

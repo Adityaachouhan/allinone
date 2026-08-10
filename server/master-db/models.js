@@ -75,6 +75,7 @@ export const Tenant = masterSequelize.define(
     db_user:               { type: DataTypes.TEXT, allowNull: false },
     db_password_encrypted: { type: DataTypes.TEXT, allowNull: false },
     jwt_secret_encrypted:  { type: DataTypes.TEXT, allowNull: false },
+    admin_password_encrypted: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     status:                { type: DataTypes.TEXT, allowNull: false, defaultValue: 'provisioning' },
     created_at:            { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at:            { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },

@@ -26,7 +26,8 @@ export function buildTenantModels(seq) {
   // ── Customer Users ───────────────────────────────────────────────────────
   const User = seq.define('User', {
     id:            { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-    email:         { type: DataTypes.TEXT, allowNull: false, unique: true },
+    phone:         { type: DataTypes.TEXT, allowNull: false, unique: true },
+    email:         { type: DataTypes.TEXT, allowNull: true },
     password_hash: { type: DataTypes.TEXT, allowNull: false },
     created_at:    { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
   }, { tableName: 'users' });

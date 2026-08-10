@@ -49,28 +49,30 @@ export async function getProfile(userId: string, isAdmin?: boolean): Promise<Pro
 }
 
 export async function signUp(input: {
-  email: string;
+  phone: string;
   password: string;
   full_name: string;
-  phone?: string;
+  email?: string;
 }): Promise<LocalSession> {
-  const data = await api<{ token: string; user: { id: string; email: string } }>('/auth/signup', {
+  const data = await api<{ token: string; user: { id: string; phone: string } }>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(input),
   });
   setToken(data.token);
-  const session = { user: data.user };
+  // Map phone to email field for LocalSession compatibility
+  const session = { user: { id: data.user.id, email: data.user.phone } };
   setSession(session);
   return session;
 }
 
-export async function signIn(email: string, password: string): Promise<LocalSession> {
-  const data = await api<{ token: string; user: { id: string; email: string } }>('/auth/signin', {
+export async function signIn(phone: string, password: string): Promise<LocalSession> {
+  const data = await api<{ token: string; user: { id: string; phone: string } }>('/auth/signin', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ phone, password }),
   });
   setToken(data.token);
-  const session = { user: data.user };
+  // Map phone to email field for LocalSession compatibility
+  const session = { user: { id: data.user.id, email: data.user.phone } };
   setSession(session);
   return session;
 }

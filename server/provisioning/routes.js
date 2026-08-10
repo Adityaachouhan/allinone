@@ -65,7 +65,7 @@ router.get('/stats', asyncH(async (_req, res) => {
 
 // ── POST /superadmin/api/tenants ─────────────────────────────────────────────
 router.post('/', asyncH(async (req, res) => {
-  const { businessName, ownerName, ownerPhone, ownerEmail, domain, initialStatus, planId } = req.body;
+  const { businessName, ownerName, ownerPhone, ownerEmail, domain, initialStatus, planId, adminPassword } = req.body;
 
   const result = await provisionTenant({
     businessName,
@@ -76,6 +76,7 @@ router.post('/', asyncH(async (req, res) => {
     initialStatus: initialStatus || 'trial',
     actorId:       req.superAdmin.id,
     actorEmail:    req.superAdmin.email,
+    adminPassword,
   });
 
   // Assign subscription plan if provided
@@ -144,16 +145,18 @@ router.patch('/:id', asyncH(async (req, res) => {
   res.json(safeTenant(tenant));
 }));
 
-// ── POST /superadmin/api/tenants/:id/reset-password ──────────────────────────
-router.post('/:id/reset-password', asyncH(async (req, res) => {
+// ── POST /superadmin/api/tenants/:id/set-credentials ──────────────────────────
+router.post('/:id/set-credentials', asyncH(async (req, res) => {
   const tenant = await Tenant.findByPk(req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Tenant not found.' });
   if (tenant.status === 'provisioning' || tenant.status === 'provisioning_failed') {
-    return res.status(400).json({ error: 'Cannot reset password on a non-active tenant.' });
+    return res.status(400).json({ error: 'Cannot set credentials on a non-active tenant.' });
   }
 
-  const newPass = randomBytes(16).toString('base64url');
-  const hash    = await bcrypt.hash(newPass, 12);
+  const { newEmail, newPassword } = req.body;
+  const emailToSet = newEmail?.trim() || tenant.owner_email;
+  const passToSet = newPassword || randomBytes(16).toString('base64url');
+  const hash = await bcrypt.hash(passToSet, 12);
 
   // Connect directly to tenant DB and update admin_users
   const dbPass = decrypt(tenant.db_password_encrypted);
@@ -167,24 +170,30 @@ router.post('/:id/reset-password', asyncH(async (req, res) => {
   });
   await client.connect();
   // Reset the 'owner' role admin
-  const result = await client.query(
-    `UPDATE admin_users SET password_hash = $1 WHERE role = 'owner' RETURNING email`,
-    [hash],
+  await client.query(
+    `UPDATE admin_users SET email = $1, password_hash = $2 WHERE role = 'owner'`,
+    [emailToSet, hash],
   );
   await client.end();
+
+  // Update master DB tenant record
+  await tenant.update({
+    owner_email: emailToSet,
+    admin_password_encrypted: encrypt(passToSet)
+  });
 
   await AuditLog.create({
     actor_id:         req.superAdmin.id,
     actor_email:      req.superAdmin.email,
-    action:           'tenant.admin_password_reset',
+    action:           'tenant.admin_credentials_updated',
     target_tenant_id: tenant.id,
-    details:          { admin_email: result.rows[0]?.email },
+    details:          { admin_email: emailToSet, manual: !!newPassword },
   });
 
   res.json({
-    message: 'Admin password reset successfully.',
-    adminEmail:       result.rows[0]?.email,
-    adminTempPassword: newPass,   // shown ONCE
+    message: 'Admin credentials updated successfully.',
+    adminEmail: emailToSet,
+    adminPassword: passToSet,
   });
 }));
 
@@ -249,8 +258,12 @@ router.post('/:id/subscriptions', asyncH(async (req, res) => {
 // ── Helper: strip sensitive DB fields from responses ─────────────────────────
 function safeTenant(t) {
   const obj = typeof t.toJSON === 'function' ? t.toJSON() : { ...t };
+  if (obj.admin_password_encrypted) {
+    obj.adminPassword = decrypt(obj.admin_password_encrypted);
+  }
   delete obj.db_password_encrypted;
   delete obj.jwt_secret_encrypted;
+  delete obj.admin_password_encrypted;
   // Never expose DB credentials to the frontend
   return obj;
 }

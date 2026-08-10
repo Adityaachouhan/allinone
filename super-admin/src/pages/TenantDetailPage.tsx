@@ -13,7 +13,9 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
   const [plans, setPlans]     = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState('');
-  const [newCreds, setNewCreds] = useState<{ adminEmail: string; adminTempPassword: string } | null>(null);
+  const [editCreds, setEditCreds] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [copied, setCopied]   = useState(false);
 
   const load = async () => {
@@ -38,12 +40,15 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
     } finally { setBusy(''); }
   };
 
-  const handleResetPassword = async () => {
+  const handleUpdateCredentials = async () => {
     if (!tenant) return;
     setBusy('password');
     try {
-      const creds = await tenantsApi.resetPassword(tenant.id);
-      setNewCreds(creds);
+      await tenantsApi.setCredentials(tenant.id, newEmail || tenant.owner_email, newPassword);
+      setEditCreds(false);
+      setNewPassword('');
+      setNewEmail('');
+      await load();
     } finally { setBusy(''); }
   };
 
@@ -214,32 +219,49 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
             </div>
           </div>
 
-          {/* Password Reset */}
+          {/* Admin Credentials */}
           <div className="glass rounded-2xl border border-white/8 p-5">
-            <h3 className="text-sm font-semibold text-white mb-3">Admin Password</h3>
-            {newCreds ? (
+            <h3 className="text-sm font-semibold text-white mb-3">Admin Credentials</h3>
+            
+            {editCreds ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Email</label>
+                  <input type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder={tenant.owner_email} className="w-full bg-surface-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500/60" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">New Password</label>
+                  <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Leave blank to auto-generate" className="w-full bg-surface-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-500/60" />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button onClick={() => setEditCreds(false)} className="flex-1 py-2 rounded-lg border border-white/10 text-xs text-slate-300 hover:bg-white/5 transition-colors">Cancel</button>
+                  <button onClick={handleUpdateCredentials} disabled={busy === 'password'} className="flex-1 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold transition-all">Save</button>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-3">
                 <div className="bg-surface-800 rounded-xl p-3">
                   <div className="text-xs text-slate-500 mb-1">Email</div>
-                  <div className="text-xs text-white font-mono">{newCreds.adminEmail}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-white font-mono flex-1 truncate">{tenant.owner_email}</div>
+                    <button onClick={() => copyText(tenant.owner_email)} className="text-slate-400 hover:text-white transition-colors shrink-0">
+                      <Copy size={13} />
+                    </button>
+                  </div>
                 </div>
                 <div className="bg-surface-800 rounded-xl p-3">
-                  <div className="text-xs text-slate-500 mb-1">Temp Password (shown once)</div>
+                  <div className="text-xs text-slate-500 mb-1">Password</div>
                   <div className="flex items-center gap-2">
-                    <div className="text-xs text-emerald-400 font-mono flex-1 break-all">{newCreds.adminTempPassword}</div>
-                    <button onClick={() => copyText(newCreds.adminTempPassword)} className="text-slate-400 hover:text-white transition-colors shrink-0">
+                    <div className="text-xs text-emerald-400 font-mono flex-1 break-all">{tenant.adminPassword || '••••••••'}</div>
+                    <button onClick={() => copyText(tenant.adminPassword || '')} className="text-slate-400 hover:text-white transition-colors shrink-0">
                       {copied ? <Check size={13} /> : <Copy size={13} />}
                     </button>
                   </div>
                 </div>
-                <p className="text-[10px] text-amber-400">⚠ Copy now — this password won't be shown again.</p>
+                <button onClick={() => { setEditCreds(true); setNewEmail(tenant.owner_email); setNewPassword(''); }} className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-white/10 text-slate-300 hover:text-white hover:bg-white/5 transition-all text-xs font-medium">
+                  <Key size={13} /> Update Credentials
+                </button>
               </div>
-            ) : (
-              <button onClick={handleResetPassword} disabled={busy === 'password'}
-                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-400 hover:bg-indigo-500/25 transition-all text-sm font-medium">
-                <Key size={14} />
-                {busy === 'password' ? 'Resetting…' : 'Reset Admin Password'}
-              </button>
             )}
           </div>
         </div>

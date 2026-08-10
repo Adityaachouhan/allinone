@@ -15,6 +15,7 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
+import { sseManager } from '../middleware/sse-manager.js';
 
 const router = express.Router();
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -115,32 +116,34 @@ router.get('/store', asyncH(async (req, res) => {
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
 router.post('/auth/signup', asyncH(async (req, res) => {
-  const { email, password, full_name, phone } = req.body;
+  const { phone, password, full_name, email } = req.body;
   const { User, Profile } = req.tenantModels;
-  const normalized = email?.trim().toLowerCase();
-  if (!normalized || !password || !full_name?.trim())
-    return res.status(400).json({ error: 'Email, password, and name are required.' });
+  const normalizedPhone = phone?.trim();
+  const normalizedEmail = email?.trim().toLowerCase() || null;
+  if (!normalizedPhone || !password || !full_name?.trim())
+    return res.status(400).json({ error: 'Phone, password, and name are required.' });
 
-  const exists = await User.findOne({ where: { email: normalized } });
-  if (exists) return res.status(400).json({ error: 'Email already registered.' });
+  const exists = await User.findOne({ where: { phone: normalizedPhone } });
+  if (exists) return res.status(400).json({ error: 'Phone number already registered.' });
 
   const hash = await bcrypt.hash(password, 10);
   const result = await req.tenantDb.transaction(async (t) => {
-    const user = await User.create({ email: normalized, password_hash: hash }, { transaction: t });
-    await Profile.create({ id: user.id, full_name: full_name.trim(), phone: phone?.trim() || '', email: normalized, app_role: 'customer' }, { transaction: t });
+    const user = await User.create({ phone: normalizedPhone, email: normalizedEmail, password_hash: hash }, { transaction: t });
+    await Profile.create({ id: user.id, full_name: full_name.trim(), phone: normalizedPhone, email: normalizedEmail || '', app_role: 'customer' }, { transaction: t });
     return user;
   });
-  res.json({ token: tenantToken(result, req.tenantJwtSecret), user: { id: result.id, email: result.email } });
+  // Note: tenantToken still expects { id, email } as a payload contract, we'll pass phone as email for token if email is empty
+  res.json({ token: tenantToken({ id: result.id, email: result.phone }, req.tenantJwtSecret), user: { id: result.id, phone: result.phone } });
 }));
 
 router.post('/auth/signin', asyncH(async (req, res) => {
-  const { email, password } = req.body;
+  const { phone, password } = req.body;
   const { User } = req.tenantModels;
-  const normalized = email?.trim().toLowerCase();
-  const user = await User.findOne({ where: { email: normalized } });
+  const normalizedPhone = phone?.trim();
+  const user = await User.findOne({ where: { phone: normalizedPhone } });
   if (!user || !(await bcrypt.compare(password, user.password_hash)))
     return res.status(401).json({ error: 'Invalid credentials.' });
-  res.json({ token: tenantToken(user, req.tenantJwtSecret), user: { id: user.id, email: user.email } });
+  res.json({ token: tenantToken({ id: user.id, email: user.phone }, req.tenantJwtSecret), user: { id: user.id, phone: user.phone } });
 }));
 
 router.get('/auth/me', authRequired, asyncH(async (req, res) => {
@@ -168,6 +171,14 @@ router.get('/admin/auth/me', authRequired, asyncH(async (req, res) => {
   if (!admin) return res.status(404).json({ error: 'Admin not found.' });
   res.json({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
 }));
+
+router.get('/admin/notifications/stream', authRequired, requireAdmin, (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+  sseManager.addClient(req.tenant.id, res);
+});
 
 // ── Categories ────────────────────────────────────────────────────────────────
 router.get('/categories', asyncH(async (req, res) => {
@@ -368,6 +379,10 @@ router.post('/orders', authRequired, asyncH(async (req, res) => {
     }
     return createdOrder;
   });
+  
+  // Notify admin of the new order
+  sseManager.notifyTenant(req.tenant.id, { event: 'new_order', orderNumber: created.order_number });
+
   res.json(mapOrder(created));
 }));
 

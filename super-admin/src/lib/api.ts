@@ -72,6 +72,7 @@ export interface Tenant {
   updated_at: string;
   subscriptions?: Subscription[];
   domainProvisionings?: DomainProvisioning[];
+  adminPassword?: string;
 }
 
 export interface Subscription {
@@ -129,10 +130,13 @@ export const tenantsApi = {
     apiFetch<Tenant>(`/tenants/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   provision: (body: {
     businessName: string; ownerName: string; ownerPhone: string;
-    ownerEmail: string; domain: string; initialStatus?: string; planId?: string;
+    ownerEmail: string; domain: string; initialStatus?: string; planId?: string; adminPassword?: string;
   }) => apiFetch<ProvisionResult>('/tenants', { method: 'POST', body: JSON.stringify(body) }),
-  resetPassword: (id: string) =>
-    apiFetch<{ adminEmail: string; adminTempPassword: string }>(`/tenants/${id}/reset-password`, { method: 'POST' }),
+  setCredentials: (id: string, newEmail?: string, newPassword?: string) =>
+    apiFetch<{ adminEmail: string; adminPassword: string }>(`/tenants/${id}/set-credentials`, {
+      method: 'POST',
+      body: JSON.stringify({ newEmail, newPassword })
+    }),
   audit: (id: string) => apiFetch<AuditLog[]>(`/tenants/${id}/audit`),
   allAudit: () => apiFetch<AuditLog[]>('/tenants/audit/all'),
   plans:    () => apiFetch<Plan[]>('/tenants/plans/list'),

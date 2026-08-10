@@ -19,6 +19,39 @@ const EMPTY: StoreSettings = {
   address: '', gstin: '', return_policy: '', grievance_officer: '', delivery_areas: '',
 };
 
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  textarea?: boolean;
+  placeholder?: string;
+}
+
+function Field({ label, value, onChange, textarea, placeholder }: FieldProps) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      {textarea ? (
+        <textarea
+          value={value || ''}
+          onChange={onChange}
+          placeholder={placeholder}
+          rows={3}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+        />
+      ) : (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={onChange}
+          placeholder={placeholder}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+      )}
+    </div>
+  );
+}
+
 export function AdminStoreSettingsPage() {
   const [form, setForm]     = useState<StoreSettings>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -27,7 +60,7 @@ export function AdminStoreSettingsPage() {
   const [error, setError]   = useState('');
 
   useEffect(() => {
-    api('/api/store-settings').then((d: StoreSettings) => {
+    api<StoreSettings>('/store-settings').then((d) => {
       setForm({ ...EMPTY, ...d });
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -36,7 +69,7 @@ export function AdminStoreSettingsPage() {
     e.preventDefault();
     setSaving(true); setError(''); setSaved(false);
     try {
-      await api('/api/store-settings', { method: 'PATCH', body: JSON.stringify(form) });
+      await api('/store-settings', { method: 'PATCH', body: JSON.stringify(form) });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
@@ -53,28 +86,7 @@ export function AdminStoreSettingsPage() {
     </div>
   );
 
-  const Field = ({ label, name, textarea, placeholder }: { label: string; name: keyof StoreSettings; textarea?: boolean; placeholder?: string }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-      {textarea ? (
-        <textarea
-          value={(form[name] as string) || ''}
-          onChange={set(name)}
-          placeholder={placeholder}
-          rows={3}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-        />
-      ) : (
-        <input
-          type="text"
-          value={(form[name] as string) || ''}
-          onChange={set(name)}
-          placeholder={placeholder}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-        />
-      )}
-    </div>
-  );
+
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -88,8 +100,8 @@ export function AdminStoreSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h2 className="font-semibold text-gray-800">Branding</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Store Name" name="store_name" placeholder="e.g. Bhardwaj Mart" />
-            <Field label="Logo URL" name="logo_url" placeholder="https://…/logo.png" />
+            <Field label="Store Name" value={form.store_name} onChange={set('store_name')} placeholder="e.g. Bhardwaj Mart" />
+            <Field label="Logo URL" value={form.logo_url} onChange={set('logo_url')} placeholder="https://…/logo.png" />
           </div>
         </div>
 
@@ -97,20 +109,20 @@ export function AdminStoreSettingsPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h2 className="font-semibold text-gray-800">Contact Information</h2>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Phone" name="phone" placeholder="+91 98765 43210" />
-            <Field label="Email" name="email" placeholder="store@example.com" />
+            <Field label="Phone" value={form.phone} onChange={set('phone')} placeholder="+91 98765 43210" />
+            <Field label="Email" value={form.email} onChange={set('email')} placeholder="store@example.com" />
           </div>
-          <Field label="Address" name="address" textarea placeholder="Full store address" />
-          <Field label="Delivery Areas" name="delivery_areas" placeholder="Sector 15, Sector 16, Noida…" />
+          <Field label="Address" value={form.address} onChange={set('address')} textarea placeholder="Full store address" />
+          <Field label="Delivery Areas" value={form.delivery_areas} onChange={set('delivery_areas')} placeholder="Sector 15, Sector 16, Noida…" />
         </div>
 
         {/* Legal (Consumer Protection Rules 2020 + DPDP Act 2023) */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h2 className="font-semibold text-gray-800">Legal & Compliance</h2>
           <p className="text-xs text-gray-400">Required under Consumer Protection (E-Commerce) Rules 2020 and DPDP Act 2023. Each field is displayed in your store's footer.</p>
-          <Field label="GSTIN" name="gstin" placeholder="22AAAAA0000A1Z5" />
-          <Field label="Return Policy" name="return_policy" textarea placeholder="Describe your return and refund policy…" />
-          <Field label="Grievance Officer" name="grievance_officer" textarea
+          <Field label="GSTIN" value={form.gstin} onChange={set('gstin')} placeholder="22AAAAA0000A1Z5" />
+          <Field label="Return Policy" value={form.return_policy} onChange={set('return_policy')} textarea placeholder="Describe your return and refund policy…" />
+          <Field label="Grievance Officer" value={form.grievance_officer} onChange={set('grievance_officer')} textarea
             placeholder="Name: Rajesh Bhardwaj&#10;Email: grievance@bhardwajmart.com&#10;Available: Mon–Fri, 10am–6pm" />
         </div>
 
