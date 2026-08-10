@@ -36,10 +36,12 @@ import tenantApiRouter from './routes/tenant-api.js';
 const app     = express();
 const PORT    = Number(process.env.PORT) || 9095;
 const distDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
+const uploadsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'uploads');
 
 // ── Global Middleware ─────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static(uploadsDir));
 
 // ── Super Admin Routes (master DB only — no tenant resolver) ──────────────────
 // These run BEFORE tenantResolver so they never touch tenant DBs

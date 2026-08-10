@@ -15,7 +15,22 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
+import multer from 'multer';
+import { extname, join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { sseManager } from '../middleware/sse-manager.js';
+
+const __dir = dirname(fileURLToPath(import.meta.url));
+const uploadDest = join(__dir, '..', '..', 'uploads');
+
+const storage = multer.diskStorage({
+  destination: uploadDest,
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, req.tenant?.slug + '-' + uniqueSuffix + extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
 
 const router = express.Router();
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -178,6 +193,12 @@ router.get('/admin/notifications/stream', authRequired, requireAdmin, (req, res)
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
   sseManager.addClient(req.tenant.id, res);
+});
+
+router.post('/admin/upload', authRequired, requireAdmin, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  const fileUrl = `/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
 });
 
 // ── Categories ────────────────────────────────────────────────────────────────

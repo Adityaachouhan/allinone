@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 
 interface StoreSettings {
   id?: string;
@@ -101,7 +102,7 @@ export function AdminStoreSettingsPage() {
           <h2 className="font-semibold text-gray-800">Branding</h2>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Store Name" value={form.store_name} onChange={set('store_name')} placeholder="e.g. Bhardwaj Mart" />
-            <Field label="Logo URL" value={form.logo_url} onChange={set('logo_url')} placeholder="https://…/logo.png" />
+            <ImageUpload label="Store Logo" value={form.logo_url} onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))} />
           </div>
         </div>
 
