@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import {
   LayoutDashboard, Package, Tags, ShoppingBag, Users, Image, Truck,
-  LogOut, Leaf, Menu,
+  LogOut, Leaf, Menu, Settings,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/admin/customers', label: 'Customers', icon: Users },
   { path: '/admin/banners', label: 'Banners', icon: Image },
   { path: '/admin/delivery', label: 'Delivery', icon: Truck },
+  { path: '/admin/store-settings', label: 'Store Settings', icon: Settings },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {
