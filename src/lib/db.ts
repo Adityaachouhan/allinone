@@ -7,6 +7,7 @@ import type {
   OrderItem,
   Product,
   Profile,
+  StoreSettings,
 } from '@/types';
 import { api, setToken } from '@/lib/api';
 
@@ -243,4 +244,14 @@ export async function listCustomerProfiles(): Promise<Profile[]> {
 export async function countCustomers(): Promise<number> {
   const data = await api<{ count: number }>('/customers/count');
   return data.count;
+}
+
+// ---------- Store Settings ----------
+
+export async function getStoreSettings(): Promise<StoreSettings> {
+  return api<StoreSettings>('/store-settings');
+}
+
+export async function updateStoreSettings(patch: Partial<StoreSettings>) {
+  await api('/store-settings', { method: 'PATCH', body: JSON.stringify(patch) });
 }

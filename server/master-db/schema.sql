@@ -57,6 +57,12 @@ CREATE INDEX IF NOT EXISTS idx_tenants_domain ON tenants(domain);
 CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
 CREATE INDEX IF NOT EXISTS idx_tenants_slug   ON tenants(slug);
 
+-- Auto-migrate existing saas_master database tables if they are missing the new columns
+DO $$
+BEGIN
+  ALTER TABLE tenants ADD COLUMN IF NOT EXISTS admin_password_encrypted text NOT NULL DEFAULT '';
+END $$;
+
 -- -------------------------------------------------------
 -- Tenant Subscriptions
 -- -------------------------------------------------------

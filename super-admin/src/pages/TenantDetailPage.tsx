@@ -17,7 +17,6 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [copied, setCopied]   = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -253,14 +252,7 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
                 <div className="bg-surface-800 rounded-xl p-3">
                   <div className="text-xs text-slate-500 mb-1">Password</div>
                   <div className="flex items-center gap-2">
-                    <div className="text-xs text-emerald-400 font-mono flex-1 break-all">
-                      {tenant.adminPassword ? (showPassword ? tenant.adminPassword : '••••••••') : 'Not set'}
-                    </div>
-                    {tenant.adminPassword && (
-                      <button onClick={() => setShowPassword(!showPassword)} className="text-slate-400 hover:text-white transition-colors shrink-0 px-1">
-                        <span className="text-[10px]">{showPassword ? 'Hide' : 'Show'}</span>
-                      </button>
-                    )}
+                    <div className="text-xs text-emerald-400 font-mono flex-1 break-all">{tenant.adminPassword || '••••••••'}</div>
                     <button onClick={() => copyText(tenant.adminPassword || '')} className="text-slate-400 hover:text-white transition-colors shrink-0">
                       {copied ? <Check size={13} /> : <Copy size={13} />}
                     </button>

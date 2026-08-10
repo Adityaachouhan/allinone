@@ -4,7 +4,6 @@ import * as db from '@/lib/db';
 import type { Category, Product } from '@/types';
 import { formatCurrency, slugify } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
-import { ImageUpload } from '@/components/admin/ImageUpload';
 
 type ProductForm = {
   name: string; category_id: string; price: string; mrp: string; unit: string;
@@ -308,7 +307,9 @@ export function AdminProductsPage() {
                 <input type="number" value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} className="input" min={0} />
               </div>
               <div className="sm:col-span-2">
-                <ImageUpload label="Product Image" value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} />
+                <label className="label">Image URL</label>
+                <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="input" placeholder="https://images.pexels.com/…" />
+                {form.image_url && <img src={form.image_url} alt="Preview" className="mt-2 h-24 w-24 rounded object-cover" />}
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Description</label>

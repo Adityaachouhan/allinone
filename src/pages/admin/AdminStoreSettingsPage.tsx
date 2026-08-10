@@ -1,19 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { ImageUpload } from '@/components/admin/ImageUpload';
-
-interface StoreSettings {
-  id?: string;
-  store_name: string;
-  logo_url: string;
-  phone: string;
-  email: string;
-  address: string;
-  gstin: string;
-  return_policy: string;
-  grievance_officer: string;
-  delivery_areas: string;
-}
+import * as db from '@/lib/db';
+import type { StoreSettings } from '@/types';
 
 const EMPTY: StoreSettings = {
   store_name: '', logo_url: '', phone: '', email: '',
@@ -61,7 +48,7 @@ export function AdminStoreSettingsPage() {
   const [error, setError]   = useState('');
 
   useEffect(() => {
-    api<StoreSettings>('/store-settings').then((d) => {
+    db.getStoreSettings().then((d) => {
       setForm({ ...EMPTY, ...d });
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
@@ -70,7 +57,7 @@ export function AdminStoreSettingsPage() {
     e.preventDefault();
     setSaving(true); setError(''); setSaved(false);
     try {
-      await api('/store-settings', { method: 'PATCH', body: JSON.stringify(form) });
+      await db.updateStoreSettings(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err: unknown) {
@@ -102,7 +89,7 @@ export function AdminStoreSettingsPage() {
           <h2 className="font-semibold text-gray-800">Branding</h2>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Store Name" value={form.store_name} onChange={set('store_name')} placeholder="e.g. Bhardwaj Mart" />
-            <ImageUpload label="Store Logo" value={form.logo_url} onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))} />
+            <Field label="Logo URL" value={form.logo_url} onChange={set('logo_url')} placeholder="https://…/logo.png" />
           </div>
         </div>
 
