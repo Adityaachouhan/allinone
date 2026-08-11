@@ -119,7 +119,7 @@ export function HomePage({ categories }: { categories: Category[] }) {
 
 
       {/* Trust badges */}
-      <section className="mx-auto max-w-7xl px-4 pt-6">
+      <section className="hidden sm:block mx-auto max-w-7xl px-4 pt-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { icon: Truck, title: 'Fast Delivery', desc: 'Within 2 hours' },
