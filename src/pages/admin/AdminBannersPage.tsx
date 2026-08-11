@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, X, Image as ImageIcon, AlertCircle, Eye, EyeOff }
 import * as db from '@/lib/db';
 import type { Banner } from '@/types';
 import { EmptyState, Spinner } from '@/components/Feedback';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 
 const emptyForm = {
   title: '', subtitle: '', image_url: '', cta_label: 'Shop Now', cta_link: '/', sort_order: '0', is_active: true,
@@ -151,11 +152,14 @@ export function AdminBannersPage() {
                 <label className="label">Subtitle</label>
                 <input value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} className="input" />
               </div>
-              <div>
-                <label className="label">Image URL *</label>
-                <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="input" placeholder="https://images.pexels.com/…" />
-                {form.image_url && <img src={form.image_url} alt="Preview" className="mt-2 h-24 w-full rounded object-cover" />}
-              </div>
+              <ImageUpload
+                label="Banner Image"
+                required
+                value={form.image_url}
+                onChange={(url) => setForm({ ...form, image_url: url })}
+                previewClass="h-24 w-full"
+                placeholder="https://images.pexels.com/…"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Button Label</label>

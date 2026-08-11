@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as db from '@/lib/db';
 import type { StoreSettings } from '@/types';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 
 const EMPTY: StoreSettings = {
   store_name: '', logo_url: '', phone: '', email: '',
@@ -89,7 +90,15 @@ export function AdminStoreSettingsPage() {
           <h2 className="font-semibold text-gray-800">Branding</h2>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Store Name" value={form.store_name} onChange={set('store_name')} placeholder="e.g. Bhardwaj Mart" />
-            <Field label="Logo URL" value={form.logo_url} onChange={set('logo_url')} placeholder="https://…/logo.png" />
+            <div>
+              <ImageUpload
+                label="Store Logo"
+                value={form.logo_url}
+                onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
+                previewClass="h-20 w-20"
+                placeholder="https://…/logo.png"
+              />
+            </div>
           </div>
         </div>
 
