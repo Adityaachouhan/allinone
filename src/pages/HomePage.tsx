@@ -119,7 +119,7 @@ export function HomePage({ categories }: { categories: Category[] }) {
 
 
       {/* Trust badges */}
-      <section className="hidden mx-auto max-w-7xl px-4 pt-6 sm:block">
+      <section className="mx-auto max-w-7xl px-4 pt-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { icon: Truck, title: 'Fast Delivery', desc: 'Within 2 hours' },
@@ -145,6 +145,34 @@ export function HomePage({ categories }: { categories: Category[] }) {
           })}
         </div>
       </section>
+
+      {/* Shop By Category */}
+      {categories.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pt-8">
+          <SectionHeader title="Shop by Category" accent />
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {categories.map((cat) => {
+              const Icon = getCategoryIcon(cat.icon_name);
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => navigate(`/category/${cat.slug}`)}
+                  className="group flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white p-5 shadow-card transition-all hover:-translate-y-1 hover:border-primary-200 hover:shadow-md"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-50 text-primary-700 transition-transform group-hover:scale-110 group-hover:bg-primary-600 group-hover:text-white">
+                    <Icon size={28} strokeWidth={1.75} />
+                  </div>
+                  <span className="mt-3 font-heading text-sm font-bold text-gray-900 group-hover:text-primary-700">
+                    {cat.name}
+                  </span>
+                  <span className="mt-0.5 text-xs text-gray-500">12 Products</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
 
 
 
@@ -230,7 +258,7 @@ function ProductRow({ products }: { products: Product[] }) {
       {products.map((p) => (
         <div
           key={p.id}
-          className="w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] xl:w-[calc((100%-3rem)/5)]"
+          className="flex flex-col w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] xl:w-[calc((100%-3rem)/5)]"
         >
           <ProductCard product={p} />
         </div>

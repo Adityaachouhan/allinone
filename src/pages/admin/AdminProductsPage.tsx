@@ -200,7 +200,15 @@ export function AdminProductsPage() {
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img src={p.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                        <img
+                          src={p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop'}
+                          alt=""
+                          className="h-10 w-10 rounded object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop';
+                          }}
+                        />
+
                         <div>
                           <p className="font-medium text-gray-900">{p.name}</p>
                           <p className="text-xs text-gray-500">{p.brand} · {p.unit}</p>
