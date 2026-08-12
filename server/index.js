@@ -72,6 +72,10 @@ if (existsSync(distDir)) {
   });
 }
 
+// Serve uploaded images (stored in public/uploads/) — works in dev & prod
+const uploadsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'uploads');
+app.use('/uploads', express.static(uploadsDir));
+
 // ── Global Error Handler ──────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
   // GUARDRAIL: Never log full DB credentials or tokens — mask them

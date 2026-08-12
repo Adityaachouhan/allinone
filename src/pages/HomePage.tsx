@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, Clock, Truck, ShieldCheck, Tag, ArrowRight } from 'lucide-react';
-import type { Banner, Category, Product } from '@/types';
+import type { Banner, Product } from '@/types';
 import { useNavigate } from '@/lib/router';
 import { ProductCard } from '@/components/ProductCard';
-import { getCategoryIcon } from '@/components/CategoryIcon';
 import { PageSpinner } from '@/components/Feedback';
 import {
   fetchBanners,
@@ -12,7 +11,7 @@ import {
   fetchTodaysDeals,
 } from '@/lib/queries';
 
-export function HomePage({ categories }: { categories: Category[] }) {
+export function HomePage() {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [featured, setFeatured] = useState<Product[]>([]);
@@ -145,34 +144,6 @@ export function HomePage({ categories }: { categories: Category[] }) {
           })}
         </div>
       </section>
-
-      {/* Shop By Category */}
-      {categories.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 pt-8">
-          <SectionHeader title="Shop by Category" accent />
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {categories.map((cat) => {
-              const Icon = getCategoryIcon(cat.icon_name);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => navigate(`/category/${cat.slug}`)}
-                  className="group flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white p-5 shadow-card transition-all hover:-translate-y-1 hover:border-primary-200 hover:shadow-md"
-                >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-50 text-primary-700 transition-transform group-hover:scale-110 group-hover:bg-primary-600 group-hover:text-white">
-                    <Icon size={28} strokeWidth={1.75} />
-                  </div>
-                  <span className="mt-3 font-heading text-sm font-bold text-gray-900 group-hover:text-primary-700">
-                    {cat.name}
-                  </span>
-                  <span className="mt-0.5 text-xs text-gray-500">12 Products</span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
 
 
 

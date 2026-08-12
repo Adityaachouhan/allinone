@@ -158,7 +158,6 @@ export function AdminBannersPage() {
                 value={form.image_url}
                 onChange={(url) => setForm({ ...form, image_url: url })}
                 previewClass="h-24 w-full"
-                placeholder="https://images.pexels.com/…"
               />
               <div className="grid grid-cols-2 gap-4">
                 <div>

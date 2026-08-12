@@ -321,7 +321,6 @@ export function AdminProductsPage() {
                   value={form.image_url}
                   onChange={(url) => setForm({ ...form, image_url: url })}
                   previewClass="h-24 w-24"
-                  placeholder="https://images.pexels.com/…"
                 />
               </div>
               <div className="sm:col-span-2">

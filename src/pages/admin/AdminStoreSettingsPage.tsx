@@ -96,7 +96,6 @@ export function AdminStoreSettingsPage() {
                 value={form.logo_url}
                 onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
                 previewClass="h-20 w-20"
-                placeholder="https://…/logo.png"
               />
             </div>
           </div>

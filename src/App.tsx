@@ -111,7 +111,7 @@ function renderCustomerPage(path: string, categories: Category[]) {
 
   switch (path) {
     case '/':
-      return <HomePage categories={categories} />;
+      return <HomePage />;
     case '/search':
       return <ProductListingPage categories={categories} />;
     case '/cart':
@@ -123,6 +123,6 @@ function renderCustomerPage(path: string, categories: Category[]) {
     case '/account':
       return <AccountPage />;
     default:
-      return <HomePage categories={categories} />;
+      return <HomePage />;
   }
 }

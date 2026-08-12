@@ -16,6 +16,35 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
 import { sseManager } from '../middleware/sse-manager.js';
+import multer from 'multer';
+import path from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// ── Upload storage setup ───────────────────────────────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename:    (_req, file, cb) => {
+    const ext  = path.extname(file.originalname).toLowerCase();
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    cb(null, name);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed.'));
+    }
+    cb(null, true);
+  },
+});
 
 const router = express.Router();
 const asyncH = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -106,6 +135,22 @@ router.get('/health', asyncH(async (req, res) => {
   await req.tenantDb.authenticate();
   res.json({ ok: true, tenant: req.tenant?.domain, db: req.tenantModels.sequelize?.config?.database || 'connected' });
 }));
+
+// ── Image Upload (admin only) ─────────────────────────────────────────────────
+router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE'
+        ? 'File too large. Maximum size is 5 MB.'
+        : (err.message || 'Upload failed.');
+      return res.status(400).json({ error: msg });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+    // Return a public URL path
+    res.json({ url: `/uploads/${req.file.filename}` });
+    void next;
+  });
+});
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
 router.get('/store', asyncH(async (req, res) => {
