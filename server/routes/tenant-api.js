@@ -62,7 +62,7 @@ function adminToken(admin, secret) {
   return jwt.sign(
     { id: admin.id, email: admin.email, role: admin.role, _type: 'tenant_admin' },
     secret,
-    { expiresIn: '12h' },
+    { expiresIn: '7d' },
   );
 }
 
