@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Package, MapPin, User as UserIcon, LogOut, ChevronRight, Plus, Trash2, Check,
-  Clock, Truck, PackageCheck, Home, X, Loader2,
+  Clock, Truck, PackageCheck, Home, X, Loader2, AlertTriangle, XCircle,
 } from 'lucide-react';
 import * as db from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
@@ -21,6 +21,11 @@ export function AccountPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+
+  // Cancel order state
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // Profile edit
   const [editName, setEditName] = useState('');
@@ -62,6 +67,22 @@ export function AccountPage() {
   const viewOrder = async (order: Order) => {
     setSelectedOrder(order);
     setOrderItems(await db.listOrderItems(order.id));
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedOrder) return;
+    setCancellingOrder(true);
+    setCancelError(null);
+    try {
+      const updated = await db.cancelOrder(selectedOrder.id);
+      setSelectedOrder(updated);
+      setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
+      setShowCancelConfirm(false);
+    } catch (err: any) {
+      setCancelError(err?.message || 'Failed to cancel order.');
+    } finally {
+      setCancellingOrder(false);
+    }
   };
 
   const saveProfile = async () => {
@@ -115,10 +136,11 @@ export function AccountPage() {
   if (selectedOrder) {
     const addr = selectedOrder.address_snapshot;
     const currentStep = ORDER_STATUS_FLOW.indexOf(selectedOrder.status);
+    const isCancellable = selectedOrder.status === 'placed' || selectedOrder.status === 'packed';
     return (
       <div className="mx-auto max-w-2xl px-4 py-6 animate-fade-in">
         <button
-          onClick={() => setSelectedOrder(null)}
+          onClick={() => { setSelectedOrder(null); setShowCancelConfirm(false); setCancelError(null); }}
           className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-700"
         >
           <ChevronRight size={16} className="rotate-180" /> Back to orders
@@ -129,11 +151,21 @@ export function AccountPage() {
             <h1 className="font-heading text-xl font-bold text-gray-900 break-all">{selectedOrder.order_number}</h1>
             <p className="text-sm text-gray-500">Placed on {formatDate(selectedOrder.created_at)}</p>
           </div>
-          <span className={`self-start rounded-full px-3 py-1 text-sm font-medium ${
-            selectedOrder.status === 'cancelled' ? 'bg-error-50 text-error-600' : 'bg-success-50 text-success-700'
-          }`}>
-            {orderStatusLabels(selectedOrder.status)}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`self-start rounded-full px-3 py-1 text-sm font-medium ${
+              selectedOrder.status === 'cancelled' ? 'bg-error-50 text-error-600' : 'bg-success-50 text-success-700'
+            }`}>
+              {orderStatusLabels(selectedOrder.status)}
+            </span>
+            {isCancellable && (
+              <button
+                onClick={() => { setCancelError(null); setShowCancelConfirm(true); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-error-200 bg-error-50 px-3 py-1 text-xs font-semibold text-error-700 hover:bg-error-100 hover:border-error-300 transition-colors"
+              >
+                <XCircle size={14} /> Cancel Order
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tracking timeline */}
@@ -205,9 +237,74 @@ export function AccountPage() {
             </div>
           </div>
         )}
+
+        {/* Actions bar / Cancel button */}
+        {isCancellable && (
+          <div className="mt-5 card p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-error-100 bg-error-50/30">
+            <div className="text-sm">
+              <p className="font-semibold text-gray-900">Need to change your mind?</p>
+              <p className="text-xs text-gray-500">You can cancel this order before it is out for delivery.</p>
+            </div>
+            <button
+              onClick={() => { setCancelError(null); setShowCancelConfirm(true); }}
+              className="btn-secondary w-full sm:w-auto border-error-200 text-error-700 hover:bg-error-50 hover:border-error-300 flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <XCircle size={16} className="text-error-600" /> Cancel Order
+            </button>
+          </div>
+        )}
+
+        {/* Cancel Confirmation Modal */}
+        {showCancelConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-slide-up">
+              <div className="flex items-center gap-3 text-error-600">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-50">
+                  <AlertTriangle size={22} />
+                </div>
+                <h3 className="font-heading text-lg font-bold text-gray-900">Cancel Order?</h3>
+              </div>
+              <p className="mt-3 text-sm text-gray-600">
+                Are you sure you want to cancel order <span className="font-semibold text-gray-900">{selectedOrder.order_number}</span>? This will stop your delivery and release the items back to stock.
+              </p>
+
+              {cancelError && (
+                <div className="mt-3 rounded-lg bg-error-50 p-3 text-xs text-error-700 font-medium">
+                  {cancelError}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowCancelConfirm(false)}
+                  disabled={cancellingOrder}
+                  className="btn-secondary py-2 text-sm"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelOrder}
+                  disabled={cancellingOrder}
+                  className="rounded-lg bg-error-600 px-4 py-2 text-sm font-semibold text-white hover:bg-error-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {cancellingOrder ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Cancelling...
+                    </>
+                  ) : (
+                    'Yes, Cancel Order'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
+
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 animate-fade-in">

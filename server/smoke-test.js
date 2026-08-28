@@ -171,6 +171,32 @@ function ok(name, pass, detail) {
   });
   ok('Admin update status', r.status === 200 && r.data.status === 'packed', r.status === 200 ? r.data?.status : JSON.stringify(r.data));
 
+  // Customer order cancellation
+  r = await req('/orders/' + orderId + '/cancel', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + custToken },
+  });
+  ok('Customer cancel order', r.status === 200 && r.data.status === 'cancelled', r.status === 200 ? r.data?.status : JSON.stringify(r.data));
+
+  r = await req('/orders/' + orderId + '/cancel', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + custToken },
+  });
+  ok('Already cancelled order blocked', r.status === 400, r.data?.error);
+
+  // Unauthorized cancel attempt
+  const otherUser = `other_${Date.now()}@example.com`;
+  const otherSignup = await req('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify({ email: otherUser, password: 'test1234', full_name: 'Other User' }),
+  });
+  r = await req('/orders/' + orderId + '/cancel', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + otherSignup.data?.token },
+  });
+  ok('Unauthorized order cancel blocked', r.status === 403, r.data?.error);
+
+
   r = await req('/customers', { headers: { Authorization: 'Bearer ' + adminToken } });
   ok('Admin customers', r.status === 200 && r.data.length >= 1, `count=${r.data?.length}`);
 

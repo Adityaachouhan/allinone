@@ -445,6 +445,59 @@ app.patch('/api/orders/:id', authRequired, requireAdmin, asyncHandler(async (req
   res.json(mapOrder(row));
 }));
 
+app.patch('/api/orders/:id/cancel', authRequired, asyncHandler(async (req, res) => {
+  const row = await Order.findByPk(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Order not found' });
+
+  const profile = await Profile.findByPk(req.user.id);
+  const isAdmin = profile?.app_role === 'admin';
+  if (row.user_id !== req.user.id && !isAdmin) {
+    return res.status(403).json({ error: 'You do not have permission to cancel this order.' });
+  }
+
+  if (row.status === 'cancelled') {
+    return res.status(400).json({ error: 'This order has already been cancelled.' });
+  }
+  if (row.status === 'out_for_delivery' || row.status === 'delivered') {
+    return res.status(400).json({ error: `Cannot cancel an order that is ${row.status.replace(/_/g, ' ')}.` });
+  }
+
+  await sequelize.transaction(async (t) => {
+    await row.update(
+      {
+        status: 'cancelled',
+        ...(row.payment_mode === 'cod' ? { payment_status: 'cancelled' } : {}),
+        updated_at: new Date(),
+      },
+      { transaction: t }
+    );
+
+    const items = await OrderItem.findAll({ where: { order_id: row.id }, transaction: t });
+    for (const item of items) {
+      if (item.product_id) {
+        const product = await Product.findByPk(item.product_id, {
+          transaction: t,
+          lock: t.LOCK.UPDATE,
+        });
+        if (product) {
+          const restoredStock = product.stock_quantity + item.quantity;
+          await product.update(
+            {
+              stock_quantity: restoredStock,
+              is_out_of_stock: false,
+            },
+            { transaction: t }
+          );
+        }
+      }
+    }
+  });
+
+  const updatedOrder = await Order.findByPk(req.params.id);
+  res.json(mapOrder(updatedOrder));
+}));
+
+
 app.get('/api/order-items', authRequired, asyncHandler(async (req, res) => {
   const orderId = req.query.orderId;
   const rows = await OrderItem.findAll({ where: { order_id: orderId } });

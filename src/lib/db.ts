@@ -217,6 +217,11 @@ export async function updateOrder(id: string, patch: Partial<Order>) {
   await api(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
 }
 
+export async function cancelOrder(id: string): Promise<Order> {
+  return api<Order>(`/orders/${id}/cancel`, { method: 'PATCH' });
+}
+
+
 export async function listOrderItems(orderId: string): Promise<OrderItem[]> {
   return api<OrderItem[]>(`/order-items?orderId=${orderId}`);
 }
