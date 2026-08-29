@@ -191,17 +191,25 @@ export function Header({ categories }: { categories: Category[] }) {
         </div>
       </div>
 
-      {/* Category nav (desktop) */}
-      <nav className="hidden border-t border-gray-100 bg-white lg:block">
-        <div className="mx-auto flex max-w-7xl items-center gap-1 px-4">
+      {/* Category nav (All devices) */}
+      <nav className="border-t border-gray-100 bg-white">
+        <div className="mx-auto flex max-w-7xl items-start gap-4 overflow-x-auto px-4 py-2 sm:gap-6 no-scrollbar">
           <button
             onClick={() => navigate('/')}
-            className={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive('/') ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-700 hover:text-primary-600'
-            }`}
+            className="group flex shrink-0 flex-col items-center gap-0 min-w-[56px]"
           >
-            Home
+            <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+              isActive('/') ? 'bg-primary-50 text-primary-700' : 'text-gray-700 group-hover:bg-gray-50'
+            }`}>
+              <Menu size={22} strokeWidth={1.5} />
+            </div>
+            <span className={`text-[10px] sm:text-xs font-medium -mt-1 sm:-mt-1.5 ${
+              isActive('/') ? 'text-primary-700' : 'text-gray-700 group-hover:text-primary-700'
+            }`}>
+              All
+            </span>
           </button>
+          
           {categories.map((cat) => {
             const Icon = getCategoryIcon(cat.icon_name);
             const active = route.path === `/category/${cat.slug}`;
@@ -209,12 +217,18 @@ export function Header({ categories }: { categories: Category[] }) {
               <button
                 key={cat.id}
                 onClick={() => navigate(`/category/${cat.slug}`)}
-                className={`flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-                  active ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-700 hover:text-primary-600'
-                }`}
+                className="group flex shrink-0 flex-col items-center gap-0 min-w-[56px]"
               >
-                <Icon size={16} />
-                {cat.name}
+                <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                  active ? 'bg-primary-50 text-primary-700' : 'text-gray-700 group-hover:bg-gray-50'
+                }`}>
+                  <Icon size={22} strokeWidth={1.5} />
+                </div>
+                <span className={`text-[10px] sm:text-xs font-medium whitespace-nowrap -mt-1 sm:-mt-1.5 ${
+                  active ? 'text-primary-700' : 'text-gray-700 group-hover:text-primary-700'
+                }`}>
+                  {cat.name}
+                </span>
               </button>
             );
           })}

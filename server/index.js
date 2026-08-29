@@ -1,78 +1,64 @@
+/**
+ * server/index.js — Multi-Tenant SaaS Entry Point
+ *
+ * Architecture:
+ *  - /superadmin/api/*  → Super Admin routes (master DB only, SA JWT)
+ *  - /api/*             → Tenant routes (tenant DB per Host header, tenant JWT)
+ *  - /*                 → Serves the React SPA (Vite dist) for tenant storefronts
+ *
+ * GUARDRAIL: Super Admin routes never touch req.tenantModels.
+ *            Tenant routes never use the global Sequelize instance.
+ *
+ * GUARDRAIL: The tenantResolver middleware runs on ALL /api/* routes,
+ *            ensuring every query goes through the domain-keyed connection pool.
+ */
+
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { Op } from 'sequelize';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  sequelize,
-  connectDb,
-  User,
-  Profile,
-  Category,
-  Product,
-  Address,
-  Order,
-  OrderItem,
-  Banner,
-  DeliverySetting,
-  num,
-  mapOrder,
-  queryProducts,
-  getProductBySlug,
-  getProductById,
-  listOrdersWithProfiles,
-  toPlain,
-} from './db.js';
 
-const app = express();
-const PORT = Number(process.env.PORT) || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'allinone-dev-secret';
+// ── Master DB ─────────────────────────────────────────────────────────────────
+import { connectMasterDb } from './master-db/models.js';
+
+// ── Super Admin auth & routes ─────────────────────────────────────────────────
+import { saAuthRouter } from './superadmin-auth.js';
+import provisioningRouter from './provisioning/routes.js';
+
+// ── Tenant routing middleware ─────────────────────────────────────────────────
+import { tenantResolver, requireTenant } from './middleware/tenant-resolver.js';
+
+// ── Tenant API routes ─────────────────────────────────────────────────────────
+import tenantApiRouter from './routes/tenant-api.js';
+
+const app     = express();
+const PORT    = Number(process.env.PORT) || 9095;
 const distDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
+// ── Global Middleware ─────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-const asyncHandler = (fn) => (req, res, next) => {
-  Promise.resolve(fn(req, res, next)).catch(next);
-};
+// ── Super Admin Routes (master DB only — no tenant resolver) ──────────────────
+// These run BEFORE tenantResolver so they never touch tenant DBs
+app.use('/superadmin/api/auth',    saAuthRouter);
+app.use('/superadmin/api/tenants', provisioningRouter);
 
-function authOptional(req, _res, next) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return next();
+// Super Admin health check
+app.get('/superadmin/api/health', async (_req, res) => {
   try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET);
-  } catch {
-    // ignore invalid token
+    await connectMasterDb();
+    res.json({ ok: true, db: 'saas_master connected' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
-  next();
-}
-
-function authRequired(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'Unauthorized' });
-  try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-}
-
-const requireAdmin = asyncHandler(async (req, res, next) => {
-  const profile = await Profile.findByPk(req.user.id);
-  if (!profile || profile.app_role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
 });
 
-function tokenFor(user) {
-  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-}
+// ── Tenant API Routes (domain-aware, isolated per tenant) ─────────────────────
+// tenantResolver MUST run before any tenant data query
+app.use('/api', tenantResolver, requireTenant, tenantApiRouter);
 
 // ---------- Auth ----------
 app.post('/api/auth/signup', asyncHandler(async (req, res) => {
@@ -528,23 +514,48 @@ app.get('/api/health', asyncHandler(async (_req, res) => {
 
 // Serve the production Vite build from the API process so the frontend and
 // `/api` share one origin. Vite's development server handles this in dev mode.
+// ── Serve Vite Production Build ───────────────────────────────────────────────
+// In development: Vite dev server handles the frontend.
+// In production: Express serves the built React SPA.
+// Each tenant sees the same SPA shell; their data is loaded dynamically via /api.
 if (existsSync(distDir)) {
   app.use(express.static(distDir));
-  app.get('*', (_req, res) => {
+  // SPA fallback — all non-API, non-SA routes serve index.html
+  app.get(/^(?!\/api|\/superadmin).*/, (_req, res) => {
     res.sendFile(join(distDir, 'index.html'));
   });
 }
 
+// Serve uploaded images (stored in public/uploads/) — works in dev & prod
+const uploadsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'uploads');
+app.use('/uploads', express.static(uploadsDir));
+
+// ── Global Error Handler ──────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
-  console.error('[API Error]', err.message);
+  // GUARDRAIL: Never log full DB credentials or tokens — mask them
+  const safeMessage = err.message?.replace(/password[^\s]*/gi, 'password=[REDACTED]') || 'Internal server error';
+  console.error('[API Error]', safeMessage);
   if (!res.headersSent) {
-    res.status(500).json({ error: err.message || 'Internal server error' });
+    res.status(500).json({ error: safeMessage });
   }
 });
 
-await connectDb();
-console.log('Sequelize connected to PostgreSQL');
+// ── Startup ───────────────────────────────────────────────────────────────────
+async function start() {
+  try {
+    await connectMasterDb();
+    console.log('✅ Master DB (saas_master) connected');
+  } catch (err) {
+    console.error('❌ Failed to connect to master DB:', err.message);
+    console.error('   Run: npm run master:setup  to create and migrate the master database.');
+    process.exit(1);
+  }
 
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-});
+  app.listen(PORT, () => {
+    console.log(`🚀 Multi-tenant API server running on http://localhost:${PORT}`);
+    console.log(`   Super Admin panel: http://localhost:${PORT}/superadmin`);
+    console.log(`   Tenant API:        http://<tenant-domain>:${PORT}/api/*`);
+  });
+}
+
+start();

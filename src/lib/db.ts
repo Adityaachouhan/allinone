@@ -7,6 +7,7 @@ import type {
   OrderItem,
   Product,
   Profile,
+  StoreSettings,
 } from '@/types';
 import { api, setToken } from '@/lib/api';
 
@@ -14,6 +15,7 @@ const SESSION_KEY = 'aio_session';
 
 export type LocalSession = {
   user: { id: string; email: string };
+  isAdmin?: boolean;
 };
 
 // ---------- Auth ----------
@@ -32,8 +34,13 @@ export function setSession(session: LocalSession | null) {
   else localStorage.removeItem(SESSION_KEY);
 }
 
-export async function getProfile(userId: string): Promise<Profile | null> {
+export async function getProfile(userId: string, isAdmin?: boolean): Promise<Profile | null> {
   try {
+    if (isAdmin) {
+      const data = await api<any>('/admin/auth/me');
+      if (data.id === userId) return { ...data, app_role: 'admin' } as Profile;
+      return null;
+    }
     const data = await api<{ profile: Profile }>('/auth/me');
     if (data.profile?.id === userId) return data.profile;
     return data.profile ?? null;
@@ -43,28 +50,30 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 }
 
 export async function signUp(input: {
-  email: string;
+  phone: string;
   password: string;
   full_name: string;
-  phone?: string;
+  email?: string;
 }): Promise<LocalSession> {
-  const data = await api<{ token: string; user: { id: string; email: string } }>('/auth/signup', {
+  const data = await api<{ token: string; user: { id: string; phone: string } }>('/auth/signup', {
     method: 'POST',
     body: JSON.stringify(input),
   });
   setToken(data.token);
-  const session = { user: data.user };
+  // Map phone to email field for LocalSession compatibility
+  const session = { user: { id: data.user.id, email: data.user.phone } };
   setSession(session);
   return session;
 }
 
-export async function signIn(email: string, password: string): Promise<LocalSession> {
-  const data = await api<{ token: string; user: { id: string; email: string } }>('/auth/signin', {
+export async function signIn(phone: string, password: string): Promise<LocalSession> {
+  const data = await api<{ token: string; user: { id: string; phone: string } }>('/auth/signin', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ phone, password }),
   });
   setToken(data.token);
-  const session = { user: data.user };
+  // Map phone to email field for LocalSession compatibility
+  const session = { user: { id: data.user.id, email: data.user.phone } };
   setSession(session);
   return session;
 }
@@ -240,4 +249,14 @@ export async function listCustomerProfiles(): Promise<Profile[]> {
 export async function countCustomers(): Promise<number> {
   const data = await api<{ count: number }>('/customers/count');
   return data.count;
+}
+
+// ---------- Store Settings ----------
+
+export async function getStoreSettings(): Promise<StoreSettings> {
+  return api<StoreSettings>('/store-settings');
+}
+
+export async function updateStoreSettings(patch: Partial<StoreSettings>) {
+  await api('/store-settings', { method: 'PATCH', body: JSON.stringify(patch) });
 }

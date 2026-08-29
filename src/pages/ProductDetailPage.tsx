@@ -95,12 +95,18 @@ export function ProductDetailPage() {
               src={product.image_url}
               alt={product.name}
               className="aspect-square w-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop';
+              }}
             />
           ) : (
-            <div className="flex aspect-square items-center justify-center text-gray-300">
-              <ShoppingCart size={64} />
-            </div>
+            <img
+              src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&auto=format&fit=crop"
+              alt={product.name}
+              className="aspect-square w-full object-cover"
+            />
           )}
+
           {discount > 0 && (
             <span className="absolute top-4 left-4 rounded-md bg-accent-500 px-3 py-1 text-sm font-semibold text-white">
               {discount}% OFF

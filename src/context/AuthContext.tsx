@@ -20,8 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (uid: string) => {
-    const p = await db.getProfile(uid);
+  const loadProfile = async (uid: string, isAdmin?: boolean) => {
+    const p = await db.getProfile(uid, isAdmin);
     setProfile(p);
   };
 
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const existing = db.getSession();
     setSessionState(existing);
     if (existing) {
-      loadProfile(existing.user.id).finally(() => setLoading(false));
+      loadProfile(existing.user.id, existing.isAdmin).finally(() => setLoading(false));
     } else {
       setLoading(false);
     }
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshProfile = async () => {
     const current = db.getSession();
     setSessionState(current);
-    if (current) await loadProfile(current.user.id);
+    if (current) await loadProfile(current.user.id, current.isAdmin);
     else setProfile(null);
   };
 

@@ -24,22 +24,23 @@ export function AuthPage() {
     try {
       if (mode === 'signup') {
         if (!fullName.trim()) throw new Error('Please enter your name.');
-        if (phone && !/^\d{10}$/.test(phone)) throw new Error('Phone must be 10 digits.');
-        await db.signUp({ email, password, full_name: fullName, phone });
+        if (!/^\d{10}$/.test(phone)) throw new Error('Phone must be 10 digits.');
+        await db.signUp({ phone, password, full_name: fullName, email });
         await refreshProfile();
         navigate(redirect);
       } else {
-        await db.signIn(email, password);
+        if (!/^\d{10}$/.test(phone)) throw new Error('Phone must be 10 digits.');
+        await db.signIn(phone, password);
         await refreshProfile();
         navigate(redirect);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       setError(
-        msg.includes('Invalid login')
-          ? 'Incorrect email or password.'
+        msg.includes('Invalid')
+          ? 'Incorrect phone number or password.'
           : msg.includes('already registered')
-            ? 'This email is already registered. Try logging in.'
+            ? 'This phone number is already registered. Try logging in.'
             : msg,
       );
     } finally {
@@ -93,35 +94,36 @@ export function AuthPage() {
                 </div>
               </div>
             )}
-            {mode === 'signup' && (
-              <div>
-                <label className="label">Phone (optional)</label>
-                <div className="relative">
-                  <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="input pl-10"
-                    placeholder="10-digit mobile number"
-                    maxLength={10}
-                  />
-                </div>
-              </div>
-            )}
             <div>
-              <label className="label">Email</label>
+              <label className="label">Phone Number</label>
               <div className="relative">
-                <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   className="input pl-10"
-                  placeholder="you@example.com"
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
                   required
                 />
               </div>
             </div>
+            {mode === 'signup' && (
+              <div>
+                <label className="label">Email (optional)</label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input pl-10"
+                    placeholder="you@example.com"
+                  />
+                </div>
+              </div>
+            )}
             <div>
               <label className="label">Password</label>
               <div className="relative">

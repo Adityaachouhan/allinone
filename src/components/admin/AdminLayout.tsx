@@ -1,9 +1,9 @@
 import { type ReactNode } from 'react';
 import {
   LayoutDashboard, Package, Tags, ShoppingBag, Users, Image, Truck,
-  LogOut, Leaf, Menu,
+  LogOut, Leaf, Menu, Settings, Bell, X
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useAuth } from '@/context/AuthContext';
 
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/admin/customers', label: 'Customers', icon: Users },
   { path: '/admin/banners', label: 'Banners', icon: Image },
   { path: '/admin/delivery', label: 'Delivery', icon: Truck },
+  { path: '/admin/store-settings', label: 'Store Settings', icon: Settings },
 ];
 
 export function AdminLayout({ children }: { children: ReactNode }) {
@@ -27,6 +28,37 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     await signOut();
     navigate('/');
   };
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
+
+  useEffect(() => {
+    // Only connect if user is admin
+    const profileRole = (profile as any)?.role;
+    if (profile?.app_role !== 'admin' && profileRole !== 'owner' && profileRole !== 'staff') {
+      return;
+    }
+
+    const eventSource = new EventSource('/api/admin/notifications/stream');
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.event === 'new_order') {
+          setToast({ message: `New Order Received: #${data.orderNumber}`, visible: true });
+          // Auto hide after 5 seconds
+          setTimeout(() => {
+            setToast((t) => t ? { ...t, visible: false } : null);
+          }, 5000);
+        }
+      } catch (err) {
+        console.error('Error parsing SSE data:', err);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [profile]);
 
   const Sidebar = (
     <div className="flex h-full flex-col bg-gray-900 text-gray-300">
@@ -109,6 +141,26 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
         <main className="p-4 sm:p-6">{children}</main>
       </div>
+
+      {/* Floating Toast Notification */}
+      {toast && toast.visible && (
+        <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
+          <div className="flex items-center gap-3 rounded-lg bg-gray-900 px-4 py-3 text-white shadow-lg border border-gray-700">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500/20 text-primary-400">
+              <Bell size={18} className="animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">{toast.message}</p>
+              <button onClick={() => { navigate('/admin/orders'); setToast({ ...toast, visible: false }); }} className="text-xs text-primary-400 hover:text-primary-300 transition-colors">
+                View Order →
+              </button>
+            </div>
+            <button onClick={() => setToast({ ...toast, visible: false })} className="ml-2 text-gray-400 hover:text-white">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -124,3 +124,16 @@ export type CartItem = {
 };
 
 export type AppRole = 'customer' | 'admin';
+
+export type StoreSettings = {
+  id?: string;
+  store_name: string;
+  logo_url: string;
+  phone: string;
+  email: string;
+  address: string;
+  gstin: string;
+  return_policy: string;
+  grievance_officer: string;
+  delivery_areas: string;
+};

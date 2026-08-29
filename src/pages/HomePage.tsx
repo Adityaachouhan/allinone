@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ChevronRight, Clock, Truck, ShieldCheck, Tag, ArrowRight } from 'lucide-react';
-import type { Banner, Category, Product } from '@/types';
+import type { Banner, Product } from '@/types';
 import { useNavigate } from '@/lib/router';
 import { ProductCard } from '@/components/ProductCard';
-import { getCategoryIcon } from '@/components/CategoryIcon';
 import { PageSpinner } from '@/components/Feedback';
 import {
   fetchBanners,
@@ -12,7 +11,7 @@ import {
   fetchTodaysDeals,
 } from '@/lib/queries';
 
-export function HomePage({ categories }: { categories: Category[] }) {
+export function HomePage() {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [featured, setFeatured] = useState<Product[]>([]);
@@ -73,21 +72,21 @@ export function HomePage({ categories }: { categories: Category[] }) {
                 aria-hidden={i !== activeBanner}
               >
                 <div className="grid items-center gap-4 sm:grid-cols-2">
-                  <div className="p-6 pb-10 sm:p-10">
-                    <h2 className="font-heading text-2xl font-bold text-white sm:text-4xl">
+                  <div className="p-4 pb-8 sm:p-8">
+                    <h2 className="font-heading text-xl font-bold text-white sm:text-3xl">
                       {banner.title}
                     </h2>
                     {banner.subtitle && (
-                      <p className="mt-2 text-sm text-primary-100 sm:text-lg">{banner.subtitle}</p>
+                      <p className="mt-1 text-xs text-primary-100 sm:text-base">{banner.subtitle}</p>
                     )}
                     <button
                       onClick={() => navigate(banner.cta_link)}
-                      className="mt-5 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 sm:text-sm sm:px-5 sm:py-2.5"
                     >
                       {banner.cta_label} <ArrowRight size={16} />
                     </button>
                   </div>
-                  <div className="hidden h-56 sm:h-72 sm:block">
+                  <div className="hidden h-40 sm:h-56 sm:block">
                     <img
                       src={banner.image_url}
                       alt={banner.title}
@@ -104,8 +103,8 @@ export function HomePage({ categories }: { categories: Category[] }) {
                   <button
                     key={i}
                     onClick={() => setActiveBanner(i)}
-                    className={`h-2 rounded-full transition-all ${
-                      i === activeBanner ? 'w-6 bg-white' : 'w-2 bg-white/50'
+                    className={`h-1.5 rounded-full transition-all ${
+                      i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/50'
                     }`}
                     aria-label={`Go to banner ${i + 1}`}
                   />
@@ -116,8 +115,10 @@ export function HomePage({ categories }: { categories: Category[] }) {
         </section>
       )}
 
+
+
       {/* Trust badges */}
-      <section className="mx-auto max-w-7xl px-4 pt-6">
+      <section className="hidden sm:block mx-auto max-w-7xl px-4 pt-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { icon: Truck, title: 'Fast Delivery', desc: 'Within 2 hours' },
@@ -144,31 +145,7 @@ export function HomePage({ categories }: { categories: Category[] }) {
         </div>
       </section>
 
-      {/* Category grid */}
-      <section className="mx-auto max-w-7xl px-4 pt-8">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-xl font-bold text-gray-900">Shop by Category</h2>
-        </div>
-        <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-          {categories.map((cat) => {
-            const Icon = getCategoryIcon(cat.icon_name);
-            return (
-              <button
-                key={cat.id}
-                onClick={() => navigate(`/category/${cat.slug}`)}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-gray-100 bg-white p-4 shadow-card transition-all hover:border-primary-200 hover:shadow-card-hover"
-              >
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-50 text-primary-600 transition-colors group-hover:bg-primary-600 group-hover:text-white">
-                  <Icon size={26} />
-                </div>
-                <span className="text-center text-xs font-medium text-gray-700 sm:text-sm">
-                  {cat.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+
 
       {/* Today's deals */}
       {deals.length > 0 && (
@@ -196,19 +173,19 @@ export function HomePage({ categories }: { categories: Category[] }) {
 
       {/* Promo banner */}
       <section className="mx-auto max-w-7xl px-4 pt-10">
-        <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 p-6 sm:p-8">
-          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+        <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-primary-600 to-primary-700 px-5 py-2.5 sm:p-8">
+          <div className="flex flex-col items-center justify-between gap-2 text-center sm:flex-row sm:gap-4 sm:text-left">
             <div>
-              <h3 className="font-heading text-xl font-bold text-white sm:text-2xl">
+              <h3 className="font-heading text-lg font-bold text-white sm:text-2xl">
                 Free delivery on orders above ₹499
               </h3>
-              <p className="mt-1 text-sm text-primary-100">
+              <p className="mt-0.5 text-xs text-primary-100 sm:mt-1 sm:text-sm">
                 Order now and get fresh groceries delivered to your doorstep.
               </p>
             </div>
             <button
               onClick={() => navigate('/search')}
-              className="shrink-0 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
+              className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 sm:px-5 sm:py-2.5"
             >
               Start Shopping
             </button>
@@ -252,7 +229,7 @@ function ProductRow({ products }: { products: Product[] }) {
       {products.map((p) => (
         <div
           key={p.id}
-          className="w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] xl:w-[calc((100%-3rem)/5)]"
+          className="flex flex-col w-[calc((100%-0.75rem)/2)] shrink-0 sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] xl:w-[calc((100%-3rem)/5)]"
         >
           <ProductCard product={p} />
         </div>

@@ -24,6 +24,7 @@ import { AdminOrdersPage } from '@/pages/admin/AdminOrdersPage';
 import { AdminCustomersPage } from '@/pages/admin/AdminCustomersPage';
 import { AdminBannersPage } from '@/pages/admin/AdminBannersPage';
 import { AdminDeliveryPage } from '@/pages/admin/AdminDeliveryPage';
+import { AdminStoreSettingsPage } from '@/pages/admin/AdminStoreSettingsPage';
 import { PageSpinner } from '@/components/Feedback';
 
 export default function App() {
@@ -93,6 +94,8 @@ function renderAdminPage(path: string) {
       return <AdminBannersPage />;
     case '/admin/delivery':
       return <AdminDeliveryPage />;
+    case '/admin/store-settings':
+      return <AdminStoreSettingsPage />;
     default:
       return <AdminDashboardPage />;
   }
@@ -108,7 +111,7 @@ function renderCustomerPage(path: string, categories: Category[]) {
 
   switch (path) {
     case '/':
-      return <HomePage categories={categories} />;
+      return <HomePage />;
     case '/search':
       return <ProductListingPage categories={categories} />;
     case '/cart':
@@ -120,6 +123,6 @@ function renderCustomerPage(path: string, categories: Category[]) {
     case '/account':
       return <AccountPage />;
     default:
-      return <HomePage categories={categories} />;
+      return <HomePage />;
   }
 }

@@ -4,6 +4,7 @@ import * as db from '@/lib/db';
 import type { Category, Product } from '@/types';
 import { formatCurrency, slugify } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
+import { ImageUpload } from '@/components/admin/ImageUpload';
 
 type ProductForm = {
   name: string; category_id: string; price: string; mrp: string; unit: string;
@@ -200,7 +201,15 @@ export function AdminProductsPage() {
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img src={p.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                        <img
+                          src={p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop'}
+                          alt=""
+                          className="h-10 w-10 rounded object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop';
+                          }}
+                        />
+
                         <div>
                           <p className="font-medium text-gray-900">{p.name}</p>
                           <p className="text-xs text-gray-500">{p.brand} · {p.unit}</p>
@@ -307,9 +316,12 @@ export function AdminProductsPage() {
                 <input type="number" value={form.stock_quantity} onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })} className="input" min={0} />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Image URL</label>
-                <input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} className="input" placeholder="https://images.pexels.com/…" />
-                {form.image_url && <img src={form.image_url} alt="Preview" className="mt-2 h-24 w-24 rounded object-cover" />}
+                <ImageUpload
+                  label="Product Image"
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  previewClass="h-24 w-24"
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Description</label>
