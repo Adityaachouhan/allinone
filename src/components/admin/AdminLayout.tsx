@@ -25,8 +25,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut();
     navigate('/');
+    await signOut();
   };
 
   // Toast notification state

@@ -42,7 +42,10 @@ export function AccountPage() {
 
   useEffect(() => {
     if (!session) {
-      navigate('/login?redirect=/account');
+      setSelectedOrder(null);
+      setOrderItems([]);
+      setOrders([]);
+      setAddresses([]);
       return;
     }
     let mounted = true;
@@ -62,7 +65,7 @@ export function AccountPage() {
       }
     })();
     return () => { mounted = false; };
-  }, [session, navigate, profile]);
+  }, [session, profile]);
 
   const viewOrder = async (order: Order) => {
     setSelectedOrder(order);
@@ -126,8 +129,12 @@ export function AccountPage() {
   };
 
   const handleSignOut = async () => {
-    await signOut();
+    setSelectedOrder(null);
+    setOrderItems([]);
+    setOrders([]);
+    setAddresses([]);
     navigate('/');
+    await signOut();
   };
 
   if (loading) return <div className="flex min-h-[40vh] items-center justify-center"><Spinner size={32} /></div>;
