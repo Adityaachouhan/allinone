@@ -69,7 +69,7 @@ export async function tenantResolver(req, res, next) {
       return res.status(404).send(`
         <html><body style="font-family:sans-serif;text-align:center;padding:60px">
           <h1>Site Not Configured</h1>
-          <p>The domain <strong>${hostname}</strong> is not associated with any store.</p>
+          <p>The domain <strong>${host}</strong> is not associated with any store.</p>
           <p>If you recently set up this store, please allow DNS to propagate and try again.</p>
         </body></html>
       `);
@@ -80,7 +80,7 @@ export async function tenantResolver(req, res, next) {
       return res.status(402).send(`
         <html><body style="font-family:sans-serif;text-align:center;padding:60px">
           <h1>Subscription Inactive</h1>
-          <p>The store at <strong>${hostname}</strong> has an inactive subscription.</p>
+          <p>The store at <strong>${host}</strong> has an inactive subscription.</p>
           <p>Please contact your service provider to reactivate your account.</p>
         </body></html>
       `);
@@ -90,7 +90,7 @@ export async function tenantResolver(req, res, next) {
       return res.status(410).send(`
         <html><body style="font-family:sans-serif;text-align:center;padding:60px">
           <h1>Account Cancelled</h1>
-          <p>The store at <strong>${hostname}</strong> has been cancelled.</p>
+          <p>The store at <strong>${host}</strong> has been cancelled.</p>
         </body></html>
       `);
     }
