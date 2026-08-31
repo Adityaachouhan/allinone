@@ -253,10 +253,15 @@ export async function countCustomers(): Promise<number> {
 
 // ---------- Store Settings ----------
 
+export async function getPublicStoreSettings(): Promise<StoreSettings> {
+  return api<StoreSettings>('/store');
+}
+
 export async function getStoreSettings(): Promise<StoreSettings> {
   return api<StoreSettings>('/store-settings');
 }
 
-export async function updateStoreSettings(patch: Partial<StoreSettings>) {
-  await api('/store-settings', { method: 'PATCH', body: JSON.stringify(patch) });
+export async function updateStoreSettings(patch: Partial<StoreSettings>): Promise<StoreSettings> {
+  return api<StoreSettings>('/store-settings', { method: 'PATCH', body: JSON.stringify(patch) });
 }
+

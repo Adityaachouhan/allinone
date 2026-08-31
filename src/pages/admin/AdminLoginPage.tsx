@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ShieldCheck, Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from '@/lib/router';
+import { useStoreSettings } from '@/context/StoreContext';
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
+  const { storeSettings } = useStoreSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,11 +38,15 @@ export function AdminLoginPage() {
       <div className="w-full max-w-md">
         <div className="rounded-2xl bg-white p-8 shadow-2xl">
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-600 text-white">
-              <ShieldCheck size={28} />
-            </div>
+            {storeSettings.logo_url ? (
+              <img src={storeSettings.logo_url} alt="Logo" className="h-14 w-14 rounded-xl object-cover border" />
+            ) : (
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-600 text-white font-bold">
+                <ShieldCheck size={28} />
+              </div>
+            )}
             <h1 className="mt-3 font-heading text-xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-sm text-gray-500">All In One Grocery Mart — Staff Login</p>
+            <p className="text-sm text-gray-500">{storeSettings.store_name || 'All In One'} — Staff Login</p>
           </div>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">

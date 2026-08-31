@@ -6,6 +6,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useAuth } from '@/context/AuthContext';
+import { useStoreSettings } from '@/context/StoreContext';
 
 const navItems = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -22,6 +23,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const route = useRoute();
   const { profile, signOut } = useAuth();
+  const { storeSettings } = useStoreSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -63,11 +65,15 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const Sidebar = (
     <div className="flex h-full flex-col bg-gray-900 text-gray-300">
       <div className="flex items-center gap-2 border-b border-gray-800 p-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
-          <Leaf size={20} />
-        </div>
-        <div>
-          <p className="font-heading font-bold text-white">All In One</p>
+        {storeSettings.logo_url ? (
+          <img src={storeSettings.logo_url} alt="Logo" className="h-9 w-9 rounded-lg object-cover border border-gray-700" />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
+            <Leaf size={20} />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="font-heading font-bold text-white truncate">{storeSettings.store_name || 'All In One'}</p>
           <p className="text-xs text-gray-400">Admin Panel</p>
         </div>
       </div>

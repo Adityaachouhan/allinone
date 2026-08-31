@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ShoppingCart, User, Search, Menu, X, Leaf, ChevronRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { useStoreSettings } from '@/context/StoreContext';
 import { useNavigate, useRoute } from '@/lib/router';
 import { searchProducts } from '@/lib/queries';
 import type { Category, Product } from '@/types';
@@ -13,6 +14,7 @@ export function Header({ categories }: { categories: Category[] }) {
   const route = useRoute();
   const { itemCount } = useCart();
   const { profile } = useAuth();
+  const { storeSettings } = useStoreSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -69,7 +71,9 @@ export function Header({ categories }: { categories: Category[] }) {
           <span className="flex items-center gap-1.5 truncate">
             <Leaf size={14} className="shrink-0" /> Fresh groceries delivered to your door
           </span>
-          <span className="shrink-0">Free delivery on orders over ₹499 · Call us: +91 8340461426</span>
+          <span className="shrink-0">
+            Free delivery on orders over ₹499 · Call us: {storeSettings.phone || '+91 8340461426'}
+          </span>
         </div>
       </div>
 
@@ -90,12 +94,20 @@ export function Header({ categories }: { categories: Category[] }) {
             onClick={() => navigate('/')}
             className="flex min-w-0 items-center gap-2 shrink-0"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white">
-              <Leaf size={20} />
-            </div>
+            {storeSettings.logo_url ? (
+              <img
+                src={storeSettings.logo_url}
+                alt={storeSettings.store_name || 'Store Logo'}
+                className="h-9 w-9 shrink-0 rounded-lg object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
+                <Leaf size={20} />
+              </div>
+            )}
             <div className="text-left">
               <span className="block font-heading text-lg font-bold leading-none text-primary-700">
-                All In One
+                {storeSettings.store_name || 'All In One'}
               </span>
               <span className="hidden text-[10px] text-gray-500 sm:block">Grocery Mart</span>
             </div>

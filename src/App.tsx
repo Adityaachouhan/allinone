@@ -29,11 +29,13 @@ import { PageSpinner } from '@/components/Feedback';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <AppRoutes />
-      </CartProvider>
-    </AuthProvider>
+    <StoreProvider>
+      <AuthProvider>
+        <CartProvider>
+          <AppRoutes />
+        </CartProvider>
+      </AuthProvider>
+    </StoreProvider>
   );
 }
 

@@ -1,10 +1,17 @@
-import { Leaf, MapPin, Phone, Mail, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Leaf, MapPin, Phone, Mail, Facebook, Instagram, Twitter, ShieldCheck, Truck } from 'lucide-react';
 import { useNavigate } from '@/lib/router';
 import type { Category } from '@/types';
 import { getCategoryIcon } from '@/components/CategoryIcon';
+import { useStoreSettings } from '@/context/StoreContext';
 
 export function Footer({ categories }: { categories: Category[] }) {
   const navigate = useNavigate();
+  const { storeSettings } = useStoreSettings();
+
+  const storeName = storeSettings.store_name || 'All In One';
+  const phone = storeSettings.phone || '+91 8340461426';
+  const email = storeSettings.email || 'hello@allinone.shop';
+  const address = storeSettings.address || 'Kagalnagar, Sonari, Jamshedpur, Jharkhand 831011';
 
   return (
     <footer className="mt-12 border-t border-gray-200 bg-white">
@@ -29,15 +36,29 @@ export function Footer({ categories }: { categories: Category[] }) {
         {/* Brand */}
         <div>
           <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
-              <Leaf size={20} />
-            </div>
-            <span className="font-heading text-lg font-bold text-primary-700">All In One</span>
+            {storeSettings.logo_url ? (
+              <img
+                src={storeSettings.logo_url}
+                alt={storeName}
+                className="h-9 w-9 rounded-lg object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
+                <Leaf size={20} />
+              </div>
+            )}
+            <span className="font-heading text-lg font-bold text-primary-700">{storeName}</span>
           </div>
           <p className="mt-3 text-sm text-gray-600">
             Your neighbourhood grocery mart, now online. Fresh fruits, vegetables, dairy and
             daily essentials delivered to your doorstep.
           </p>
+          {storeSettings.delivery_areas && (
+            <div className="mt-3 flex items-start gap-1.5 text-xs text-primary-700 bg-primary-50 p-2.5 rounded-lg border border-primary-100">
+              <Truck size={14} className="shrink-0 mt-0.5" />
+              <span>Delivering to: {storeSettings.delivery_areas}</span>
+            </div>
+          )}
           <div className="mt-4 flex gap-3">
             {[Facebook, Instagram, Twitter].map((Icon, i) => (
               <a
@@ -101,27 +122,55 @@ export function Footer({ categories }: { categories: Category[] }) {
           <ul className="mt-3 space-y-3 text-sm text-gray-600">
             <li className="flex items-start gap-2">
               <MapPin size={18} className="mt-0.5 shrink-0 text-primary-600" />
-              <span>Kagalnagar, Sonari, Jamshedpur, Jharkhand 831011</span>
+              <span>{address}</span>
             </li>
             <li className="flex items-center gap-2">
               <Phone size={18} className="shrink-0 text-primary-600" />
-              <a href="tel:+918340461426" className="hover:text-primary-700">+91 8340461426</a>
+              <a href={`tel:${phone}`} className="hover:text-primary-700">
+                {phone}
+              </a>
             </li>
             <li className="flex items-center gap-2">
               <Mail size={18} className="shrink-0 text-primary-600" />
-              <a href="mailto:hello@allinone.shop" className="hover:text-primary-700">hello@allinone.shop</a>
+              <a href={`mailto:${email}`} className="hover:text-primary-700">
+                {email}
+              </a>
             </li>
           </ul>
         </div>
       </div>
 
+      {/* Compliance Footer section */}
+      {(storeSettings.gstin || storeSettings.return_policy || storeSettings.grievance_officer) && (
+        <div className="border-t border-gray-100 bg-gray-50/50 py-4 px-4">
+          <div className="mx-auto max-w-7xl grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-gray-500">
+            {storeSettings.gstin && (
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-primary-600 shrink-0" />
+                <span>
+                  <strong>GSTIN:</strong> {storeSettings.gstin}
+                </span>
+              </div>
+            )}
+            {storeSettings.return_policy && (
+              <div>
+                <strong>Return Policy:</strong> {storeSettings.return_policy}
+              </div>
+            )}
+            {storeSettings.grievance_officer && (
+              <div className="whitespace-pre-line">
+                <strong>Grievance Redressal:</strong> {storeSettings.grievance_officer}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-gray-100 py-4">
         <p className="text-center text-xs text-gray-500">
-          © {new Date().getFullYear()} All In One Grocery Mart.
+          © {new Date().getFullYear()} {storeName} Grocery Mart.
         </p>
-        <p className="mt-1 text-center text-xs text-gray-500">
-          Developed by Aditya
-        </p>
+        <p className="mt-1 text-center text-xs text-gray-500">Developed by Aditya</p>
       </div>
     </footer>
   );

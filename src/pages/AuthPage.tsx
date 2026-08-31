@@ -3,11 +3,13 @@ import { Leaf, Mail, Lock, User as UserIcon, Phone, Loader2 } from 'lucide-react
 import * as db from '@/lib/db';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useAuth } from '@/context/AuthContext';
+import { useStoreSettings } from '@/context/StoreContext';
 
 export function AuthPage() {
   const navigate = useNavigate();
   const route = useRoute();
   const { refreshProfile } = useAuth();
+  const { storeSettings } = useStoreSettings();
   const redirect = route.query.redirect || '/account';
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
@@ -54,10 +56,16 @@ export function AuthPage() {
         <div className="card p-6 sm:p-8">
           {/* Logo */}
           <div className="flex flex-col items-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600 text-white">
-              <Leaf size={26} />
-            </div>
-            <h1 className="mt-3 font-heading text-xl font-bold text-primary-700">All In One</h1>
+            {storeSettings.logo_url ? (
+              <img src={storeSettings.logo_url} alt={storeSettings.store_name || 'Logo'} className="h-12 w-12 rounded-xl object-cover border" />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600 text-white font-bold">
+                <Leaf size={26} />
+              </div>
+            )}
+            <h1 className="mt-3 font-heading text-xl font-bold text-primary-700">
+              {storeSettings.store_name || 'All In One'}
+            </h1>
             <p className="text-sm text-gray-500">
               {mode === 'login' ? 'Welcome back! Sign in to your account.' : 'Create your account to start shopping.'}
             </p>
