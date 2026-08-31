@@ -136,3 +136,21 @@ DROP TRIGGER IF EXISTS orders_bump_updated_at ON orders;
 CREATE TRIGGER orders_bump_updated_at
   BEFORE UPDATE ON orders
   FOR EACH ROW EXECUTE FUNCTION bump_updated_at();
+
+CREATE TABLE IF NOT EXISTS store_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_name text NOT NULL DEFAULT '',
+  tagline text NOT NULL DEFAULT 'Grocery Mart',
+  logo_url text NOT NULL DEFAULT '',
+  phone text NOT NULL DEFAULT '',
+  email text NOT NULL DEFAULT '',
+  address text NOT NULL DEFAULT '',
+  gstin text NOT NULL DEFAULT '',
+  return_policy text,
+  grievance_officer text,
+  delivery_areas text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
