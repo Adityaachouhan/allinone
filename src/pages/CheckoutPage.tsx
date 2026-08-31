@@ -4,8 +4,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from '@/lib/router';
 import * as db from '@/lib/db';
-import { fetchDeliverySettings } from '@/lib/queries';
-import type { Address, DeliverySetting } from '@/types';
+import type { Address } from '@/types';
 import { formatCurrency, generateOrderNumber } from '@/lib/utils';
 import { Spinner } from '@/components/Feedback';
 
@@ -14,7 +13,6 @@ export function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
-  const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
@@ -43,13 +41,9 @@ export function CheckoutPage() {
     let mounted = true;
     (async () => {
       try {
-        const [addrList, ds] = await Promise.all([
-          db.listAddresses(session.user.id),
-          fetchDeliverySettings(),
-        ]);
+        const addrList = await db.listAddresses(session.user.id);
         if (!mounted) return;
         setAddresses(addrList);
-        setDeliverySettings(ds);
         const defaultAddr = addrList.find((a) => a.is_default) || addrList[0];
         if (defaultAddr) setSelectedAddressId(defaultAddr.id);
         else if (addrList.length === 0) setShowAddressForm(true);
@@ -62,6 +56,17 @@ export function CheckoutPage() {
 
   const deliveryCharge = subtotal >= 499 ? 0 : 30;
   const total = subtotal + deliveryCharge;
+
+  const isNewAddressValid =
+    showAddressForm &&
+    newAddr.full_name.trim().length > 0 &&
+    newAddr.phone.trim().length > 0 &&
+    newAddr.line1.trim().length > 0 &&
+    newAddr.city.trim().length > 0 &&
+    /^\d{6}$/.test(newAddr.pincode.trim());
+
+  const hasValidAddress = Boolean(selectedAddressId) || isNewAddressValid;
+  const canPlaceOrder = !placing && hasValidAddress;
 
   const saveAddress = async () => {
     if (!session) return;
@@ -92,11 +97,36 @@ export function CheckoutPage() {
       return;
     }
     setError('');
-    const address = addresses.find((a) => a.id === selectedAddressId);
+
+    let targetAddressId = selectedAddressId;
+
+    // Auto-save address if user filled new address form directly
+    if (!targetAddressId && isNewAddressValid) {
+      setPlacing(true);
+      try {
+        const saved = await db.insertAddress({
+          ...newAddr,
+          user_id: session.user.id,
+          line2: newAddr.line2 || null,
+          is_default: addresses.length === 0,
+        });
+        setAddresses((prev) => [...prev, saved]);
+        targetAddressId = saved.id;
+        setSelectedAddressId(saved.id);
+        setShowAddressForm(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save address.');
+        setPlacing(false);
+        return;
+      }
+    }
+
+    const address = addresses.find((a) => a.id === targetAddressId);
     if (!address) {
-      setError('Please select a delivery address.');
+      setError('Please select or fill in a valid delivery address.');
       return;
     }
+
     setPlacing(true);
     try {
       const orderNumber = generateOrderNumber();
@@ -417,11 +447,17 @@ export function CheckoutPage() {
 
             <button
               onClick={placeOrder}
-              disabled={placing || !selectedAddressId}
-              className="btn-primary mt-4 w-full py-3"
+              disabled={!canPlaceOrder}
+              className="btn-primary mt-4 w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {placing ? <Spinner size={18} /> : `Place Order · ${formatCurrency(total)}`}
             </button>
+
+            {!hasValidAddress && (
+              <p className="mt-2 text-center text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+                ⚠️ Please select a delivery address or fill out all required address fields (*Name, Phone, Pincode 6-digits, Line 1, City) to place order.
+              </p>
+            )}
           </div>
         </div>
       </div>

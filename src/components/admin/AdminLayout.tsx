@@ -36,7 +36,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Only connect if user is admin
-    const profileRole = (profile as any)?.role;
+    const profileRole = (profile as { role?: string })?.role;
     if (profile?.app_role !== 'admin' && profileRole !== 'owner' && profileRole !== 'staff') {
       return;
     }

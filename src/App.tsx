@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { CartProvider } from '@/context/CartContext';
+import { StoreProvider } from '@/context/StoreContext';
 import { useRoute, navigate } from '@/lib/router';
 import { fetchCategories } from '@/lib/queries';
 import type { Category } from '@/types';

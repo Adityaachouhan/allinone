@@ -37,7 +37,7 @@ export function setSession(session: LocalSession | null) {
 export async function getProfile(userId: string, isAdmin?: boolean): Promise<Profile | null> {
   try {
     if (isAdmin) {
-      const data = await api<any>('/admin/auth/me');
+      const data = await api<Profile>('/admin/auth/me');
       if (data.id === userId) return { ...data, app_role: 'admin' } as Profile;
       return null;
     }

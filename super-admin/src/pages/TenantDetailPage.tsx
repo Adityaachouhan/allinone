@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { tenantsApi, type Tenant, type AuditLog, type Plan, type TenantStatus } from '../lib/api';
 import {
   ArrowLeft, Globe, Database, Mail, Phone, Calendar, RefreshCw,
@@ -18,7 +18,7 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [copied, setCopied]   = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [t, a, p] = await Promise.all([
@@ -28,8 +28,9 @@ export function TenantDetailPage({ tenantId, onBack }: Props) {
       ]);
       setTenant(t); setAudit(a); setPlans(p);
     } catch (e) { console.error(e); } finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [tenantId]);
+  }, [tenantId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const handleStatusChange = async (status: TenantStatus) => {
     if (!tenant) return;

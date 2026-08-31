@@ -3,7 +3,7 @@ import * as db from '@/lib/db';
 import type { StoreSettings } from '@/types';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { useStoreSettings } from '@/context/StoreContext';
-import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, Mail, FileText } from 'lucide-react';
+import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText } from 'lucide-react';
 
 const EMPTY: StoreSettings = {
   store_name: '', logo_url: '', phone: '', email: '',

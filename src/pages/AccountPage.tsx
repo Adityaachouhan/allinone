@@ -81,8 +81,8 @@ export function AccountPage() {
       setSelectedOrder(updated);
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
       setShowCancelConfirm(false);
-    } catch (err: any) {
-      setCancelError(err?.message || 'Failed to cancel order.');
+    } catch (err) {
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel order.');
     } finally {
       setCancellingOrder(false);
     }
