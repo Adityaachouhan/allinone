@@ -45,11 +45,12 @@ async function migrateAllTenants() {
       // (Wait, CREATE TABLE IF NOT EXISTS doesn't update existing tables).
       // We will explicitly apply the phone auth migration here.
       
-      console.log('Applying phone auth migration...');
+      console.log('Applying phone auth & store settings migrations...');
       await client.query(`
         ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
         ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
         ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
+        ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
       `);
       
       console.log('Applying base schema updates...');

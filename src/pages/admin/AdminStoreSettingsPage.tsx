@@ -6,7 +6,7 @@ import { useStoreSettings } from '@/context/StoreContext';
 import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText } from 'lucide-react';
 
 const EMPTY: StoreSettings = {
-  store_name: '', logo_url: '', phone: '', email: '',
+  store_name: '', tagline: '', logo_url: '', phone: '', email: '',
   address: '', gstin: '', return_policy: '', grievance_officer: '', delivery_areas: '',
 };
 
@@ -90,6 +90,7 @@ export function AdminStoreSettingsPage() {
   const handleLoadDefaults = () => {
     const defaultData: StoreSettings = {
       store_name: 'Bhardwaj Mart',
+      tagline: 'Fresh Groceries Delivered Daily',
       logo_url: form.logo_url || '',
       phone: '+91 8340461426',
       email: 'contact@bhardwajmart.com',
@@ -120,7 +121,7 @@ export function AdminStoreSettingsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Store Settings</h1>
           </div>
           <p className="text-gray-500 text-sm mt-1">
-            Configure your store branding, contact details, and compliance footer. Changes take effect instantly upon saving.
+            Configure your store branding, heading tagline, contact details, and compliance footer. Changes take effect instantly upon saving.
           </p>
         </div>
 
@@ -151,12 +152,18 @@ export function AdminStoreSettingsPage() {
           <h2 className="font-semibold text-gray-800 flex items-center gap-2">
             Branding & Visual Identity
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field
               label="Store Name"
               value={form.store_name}
               onChange={set('store_name')}
               placeholder="e.g. Bhardwaj Mart"
+            />
+            <Field
+              label="Tagline / Heading Subtitle"
+              value={form.tagline || ''}
+              onChange={set('tagline')}
+              placeholder="e.g. Grocery Mart"
             />
             <div>
               <ImageUpload
@@ -279,7 +286,10 @@ export function AdminStoreSettingsPage() {
                     {(form.store_name || 'A')[0]}
                   </div>
                 )}
-                <span className="font-bold text-green-700 text-base">{form.store_name || 'All In One'}</span>
+                <div>
+                  <span className="block font-bold text-green-700 text-base leading-none">{form.store_name || 'All In One'}</span>
+                  <span className="text-[10px] text-gray-500">{form.tagline || 'Grocery Mart'}</span>
+                </div>
               </div>
               <span className="text-xs text-gray-500">📞 {form.phone || '+91 8340461426'}</span>
             </div>

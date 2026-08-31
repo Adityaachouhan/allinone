@@ -171,6 +171,7 @@ CREATE INDEX IF NOT EXISTS idx_delivery_pincode ON delivery_settings(pincode);
 CREATE TABLE IF NOT EXISTS store_settings (
   id                uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   store_name        text        NOT NULL DEFAULT '',
+  tagline           text        NOT NULL DEFAULT 'Grocery Mart',
   logo_url          text        NOT NULL DEFAULT '',
   phone             text        NOT NULL DEFAULT '',
   email             text        NOT NULL DEFAULT '',

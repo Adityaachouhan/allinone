@@ -526,7 +526,7 @@ router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
   const [settings] = await StoreSetting.findAll({ limit: 1 });
-  const fields = ['store_name','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
+  const fields = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
   const patch = {};
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
   if (settings) {

@@ -128,6 +128,7 @@ export type AppRole = 'customer' | 'admin';
 export type StoreSettings = {
   id?: string;
   store_name: string;
+  tagline?: string;
   logo_url: string;
   phone: string;
   email: string;

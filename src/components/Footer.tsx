@@ -47,7 +47,10 @@ export function Footer({ categories }: { categories: Category[] }) {
                 <Leaf size={20} />
               </div>
             )}
-            <span className="font-heading text-lg font-bold text-primary-700">{storeName}</span>
+            <div>
+              <span className="block font-heading text-lg font-bold leading-none text-primary-700">{storeName}</span>
+              <span className="block text-xs text-gray-500 mt-0.5">{storeSettings.tagline || 'Grocery Mart'}</span>
+            </div>
           </div>
           <p className="mt-3 text-sm text-gray-600">
             Your neighbourhood grocery mart, now online. Fresh fruits, vegetables, dairy and

@@ -146,6 +146,7 @@ export function buildTenantModels(seq) {
   const StoreSetting = seq.define('StoreSetting', {
     id:                { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     store_name:        { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    tagline:           { type: DataTypes.TEXT, allowNull: false, defaultValue: 'Grocery Mart' },
     logo_url:          { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     phone:             { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     email:             { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },

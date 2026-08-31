@@ -106,10 +106,10 @@ export function Header({ categories }: { categories: Category[] }) {
               </div>
             )}
             <div className="text-left">
-              <span className="block font-heading text-lg font-bold leading-none text-primary-700">
+              <span className="block font-heading text-base sm:text-lg font-bold leading-none text-primary-700 truncate max-w-[150px] sm:max-w-none">
                 {storeSettings.store_name || 'All In One'}
               </span>
-              <span className="hidden text-[10px] text-gray-500 sm:block">Grocery Mart</span>
+              <span className="block text-[10px] text-gray-500 truncate max-w-[150px] sm:max-w-none">{storeSettings.tagline || 'Grocery Mart'}</span>
             </div>
           </button>
 
@@ -256,8 +256,26 @@ export function Header({ categories }: { categories: Category[] }) {
           />
           <div className="absolute left-0 top-0 h-full w-72 max-w-[80%] overflow-y-auto bg-white shadow-xl animate-slide-down">
             <div className="flex items-center justify-between border-b border-gray-100 p-4">
-              <span className="font-heading font-bold text-primary-700">Menu</span>
-              <button onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+              <div className="flex items-center gap-2 min-w-0">
+                {storeSettings.logo_url ? (
+                  <img
+                    src={storeSettings.logo_url}
+                    alt="Logo"
+                    className="h-8 w-8 shrink-0 rounded-lg object-cover border border-gray-200"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-xs">
+                    <Leaf size={16} />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <span className="block font-heading font-bold text-primary-700 text-sm leading-none truncate">
+                    {storeSettings.store_name || 'All In One'}
+                  </span>
+                  <span className="block text-[10px] text-gray-500 truncate">{storeSettings.tagline || 'Grocery Mart'}</span>
+                </div>
+              </div>
+              <button onClick={() => setMobileMenuOpen(false)} aria-label="Close menu" className="shrink-0 ml-2">
                 <X size={22} />
               </button>
             </div>

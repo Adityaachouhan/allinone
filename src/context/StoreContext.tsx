@@ -4,6 +4,7 @@ import type { StoreSettings } from '@/types';
 
 const DEFAULT_STORE_SETTINGS: StoreSettings = {
   store_name: 'All In One',
+  tagline: 'Grocery Mart',
   logo_url: '',
   phone: '+91 8340461426',
   email: 'hello@allinone.shop',
@@ -35,6 +36,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...DEFAULT_STORE_SETTINGS,
           ...data,
           store_name: data.store_name?.trim() || prev.store_name,
+          tagline: data.tagline?.trim() ?? prev.tagline,
           phone: data.phone?.trim() || prev.phone,
           email: data.email?.trim() || prev.email,
           address: data.address?.trim() || prev.address,
@@ -54,9 +56,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Update browser document title dynamically
   useEffect(() => {
     if (storeSettings.store_name) {
-      document.title = `${storeSettings.store_name} - Grocery Mart`;
+      document.title = `${storeSettings.store_name} - ${storeSettings.tagline || 'Grocery Mart'}`;
     }
-  }, [storeSettings.store_name]);
+  }, [storeSettings.store_name, storeSettings.tagline]);
 
   const updateSettings = async (patch: Partial<StoreSettings>): Promise<StoreSettings> => {
     const updated = await db.updateStoreSettings(patch);
