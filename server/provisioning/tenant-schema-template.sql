@@ -205,4 +205,5 @@ CREATE TRIGGER store_settings_bump_updated_at
 -- -------------------------------------------------------
 -- Seed: default store_settings row (one per tenant DB)
 -- -------------------------------------------------------
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
 INSERT INTO store_settings (store_name) VALUES ('') ON CONFLICT DO NOTHING;
