@@ -150,27 +150,39 @@ export function getOrCreateTenantConnection(domain, { db_host, db_port, db_name,
   const tenantModels = buildTenantModels(seq);
 
   // Auto-ensure database columns on connection initialization
-  seq.query(`
-    CREATE TABLE IF NOT EXISTS store_settings (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      store_name text NOT NULL DEFAULT '',
-      tagline text NOT NULL DEFAULT 'Grocery Mart',
-      logo_url text NOT NULL DEFAULT '',
-      phone text NOT NULL DEFAULT '',
-      email text NOT NULL DEFAULT '',
-      address text NOT NULL DEFAULT '',
-      gstin text NOT NULL DEFAULT '',
-      return_policy text,
-      grievance_officer text,
-      delivery_areas text NOT NULL DEFAULT '',
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
-  `).catch((err) => {
-    console.warn(`[Pool] Schema auto-migration notice for "${db_name}":`, err.message);
-  });
+  (async () => {
+    try {
+      await seq.query(`
+        CREATE TABLE IF NOT EXISTS store_settings (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          store_name text NOT NULL DEFAULT '',
+          tagline text NOT NULL DEFAULT 'Grocery Mart',
+          logo_url text NOT NULL DEFAULT '',
+          phone text NOT NULL DEFAULT '',
+          email text NOT NULL DEFAULT '',
+          address text NOT NULL DEFAULT '',
+          gstin text NOT NULL DEFAULT '',
+          return_policy text,
+          grievance_officer text,
+          delivery_areas text NOT NULL DEFAULT '',
+          created_at timestamptz NOT NULL DEFAULT now(),
+          updated_at timestamptz NOT NULL DEFAULT now()
+        );
+      `);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;`);
+      await seq.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';`);
+      await seq.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;`);
+    } catch (err) {
+      console.warn(`[Pool] Schema auto-migration notice for "${db_name}":`, err.message);
+    }
+  })();
 
   tenantPool.set(domain, seq, tenantModels);
   console.log(`[Pool] New connection created for "${domain}" → "${db_name}".`);

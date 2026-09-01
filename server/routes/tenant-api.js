@@ -172,23 +172,26 @@ async function ensureStoreSettingsSchema(req) {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
     `);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;`);
+    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';`);
   } catch (err) {
-    console.warn('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
+    console.error('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
   }
 }
 
 router.get('/store', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
-  try {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  } catch (err) {
-    await ensureStoreSettingsSchema(req);
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  }
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  res.json(settings ? toPlain(settings) : {});
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -550,41 +553,26 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 
 // ── Store Settings (admin) ────────────────────────────────────────────────────
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
-  try {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  } catch (err) {
-    await ensureStoreSettingsSchema(req);
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  }
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  res.json(settings ? toPlain(settings) : {});
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
   const fields = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
   const patch = {};
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
-  const doUpdate = async () => {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
-    if (settings) {
-      await settings.update(patch);
-      return toPlain(settings);
-    } else {
-      const row = await StoreSetting.create(patch);
-      return toPlain(row);
-    }
-  };
-
-  try {
-    const result = await doUpdate();
-    res.json(result);
-  } catch (err) {
-    await ensureStoreSettingsSchema(req);
-    const result = await doUpdate();
-    res.json(result);
+  const [settings] = await StoreSetting.findAll({ limit: 1 });
+  if (settings) {
+    await settings.update(patch);
+    res.json(toPlain(settings));
+  } else {
+    const row = await StoreSetting.create(patch);
+    res.json(toPlain(row));
   }
 }));
 
