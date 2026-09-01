@@ -164,6 +164,26 @@ export const DeliverySetting = sequelize.define(
   { tableName: 'delivery_settings' },
 );
 
+export const StoreSetting = sequelize.define(
+  'StoreSetting',
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    store_name: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    tagline: { type: DataTypes.TEXT, allowNull: false, defaultValue: 'Grocery Mart' },
+    logo_url: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    phone: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    email: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    address: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    gstin: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    return_policy: { type: DataTypes.TEXT, allowNull: true },
+    grievance_officer: { type: DataTypes.TEXT, allowNull: true },
+    delivery_areas: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+    updated_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
+  },
+  { tableName: 'store_settings' },
+);
+
 // Associations
 User.hasOne(Profile, { foreignKey: 'id', as: 'profile' });
 Profile.belongsTo(User, { foreignKey: 'id', as: 'user' });
@@ -198,5 +218,6 @@ export default {
   OrderItem,
   Banner,
   DeliverySetting,
+  StoreSetting,
   connectDb,
 };

@@ -153,10 +153,42 @@ router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
 });
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
+async function ensureStoreSettingsSchema(req) {
+  if (!req.tenantDb) return;
+  try {
+    await req.tenantDb.query(`
+      CREATE TABLE IF NOT EXISTS store_settings (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        store_name text NOT NULL DEFAULT '',
+        tagline text NOT NULL DEFAULT 'Grocery Mart',
+        logo_url text NOT NULL DEFAULT '',
+        phone text NOT NULL DEFAULT '',
+        email text NOT NULL DEFAULT '',
+        address text NOT NULL DEFAULT '',
+        gstin text NOT NULL DEFAULT '',
+        return_policy text,
+        grievance_officer text,
+        delivery_areas text NOT NULL DEFAULT '',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+    `);
+  } catch (err) {
+    console.warn('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
+  }
+}
+
 router.get('/store', asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  try {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  } catch (err) {
+    await ensureStoreSettingsSchema(req);
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  }
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -519,22 +551,40 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 // ── Store Settings (admin) ────────────────────────────────────────────────────
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  try {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  } catch (err) {
+    await ensureStoreSettingsSchema(req);
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  }
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
   const fields = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
   const patch = {};
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
-  if (settings) {
-    await settings.update(patch);
-    res.json(toPlain(settings));
-  } else {
-    const row = await StoreSetting.create(patch);
-    res.json(toPlain(row));
+
+  const doUpdate = async () => {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    if (settings) {
+      await settings.update(patch);
+      return toPlain(settings);
+    } else {
+      const row = await StoreSetting.create(patch);
+      return toPlain(row);
+    }
+  };
+
+  try {
+    const result = await doUpdate();
+    res.json(result);
+  } catch (err) {
+    await ensureStoreSettingsSchema(req);
+    const result = await doUpdate();
+    res.json(result);
   }
 }));
 

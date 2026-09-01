@@ -8,59 +8,93 @@ import { masterSequelize, Tenant } from './master-db/models.js';
 const { Client } = pg;
 const __dir = dirname(fileURLToPath(import.meta.url));
 
-async function migrateAllTenants() {
-  console.log('Fetching active tenants from master DB...');
-  await masterSequelize.authenticate();
-  
-  const tenants = await Tenant.findAll();
-  console.log(`Found ${tenants.length} tenants to migrate.`);
+async function migrateDatabase(client, dbName) {
+  console.log(`Applying migrations to ${dbName}...`);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS store_settings (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      store_name text NOT NULL DEFAULT '',
+      tagline text NOT NULL DEFAULT 'Grocery Mart',
+      logo_url text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      address text NOT NULL DEFAULT '',
+      gstin text NOT NULL DEFAULT '',
+      return_policy text,
+      grievance_officer text,
+      delivery_areas text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
+    ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+  `);
+}
 
-  // Load the full standalone schema that we normally apply to new tenants
+async function migrateAllTenants() {
+  const host = process.env.DB_HOST || 'localhost';
+  const port = Number(process.env.DB_PORT) || 5432;
+  const user = process.env.DB_USER || 'postgres';
+  const password = process.env.DB_PASSWORD || 'admin';
+
+  const dbTargets = new Map(); // dbName -> password
+
+  try {
+    await masterSequelize.authenticate();
+    const tenants = await Tenant.findAll();
+    console.log(`Found ${tenants.length} tenants in master DB.`);
+    const { decrypt } = await import('./master-db/crypto.js');
+    for (const t of tenants) {
+      try {
+        const dbPassword = decrypt(t.db_password_encrypted);
+        dbTargets.set(t.db_name, dbPassword);
+      } catch (e) {
+        console.warn(`⚠️  Failed to decrypt password for ${t.db_name}`);
+      }
+    }
+  } catch (err) {
+    console.warn('Notice: Could not fetch tenants from master DB:', err.message);
+  }
+
+  // Scan PostgreSQL databases
+  const pgClient = new Client({ host, port, user, password, database: 'postgres' });
+  try {
+    await pgClient.connect();
+    const res = await pgClient.query(`SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%' OR datname = 'allinone';`);
+    for (const row of res.rows) {
+      if (!dbTargets.has(row.datname)) {
+        dbTargets.set(row.datname, password);
+      }
+    }
+    await pgClient.end();
+  } catch (err) {
+    console.warn('Notice: Could not scan postgres database list:', err.message);
+  }
+
+  console.log(`Discovered ${dbTargets.size} databases to migrate:`, [...dbTargets.keys()]);
   const schemaSQL = readFileSync(join(__dir, 'provisioning', 'tenant-schema-template.sql'), 'utf8');
 
-  for (const t of tenants) {
-    console.log(`\n--- Migrating tenant: ${t.business_name} (${t.db_name}) ---`);
-    
-    // Decrypt the DB password securely
-    const { decrypt } = await import('./master-db/crypto.js');
-    let dbPassword = '';
-    try {
-      dbPassword = decrypt(t.db_password_encrypted);
-    } catch (e) {
-      console.warn(`⚠️  Failed to decrypt password for ${t.db_name}, skipping...`);
-      continue;
-    }
-
+  for (const [dbName, dbPassword] of dbTargets.entries()) {
+    console.log(`\n--- Migrating DB: ${dbName} ---`);
     const client = new Client({
-      host: t.db_host,
-      port: t.db_port,
-      user: t.db_user,
-      password: dbPassword,
-      database: t.db_name,
+      host,
+      port,
+      user,
+      password: dbPassword || password,
+      database: dbName,
     });
 
     try {
       await client.connect();
-      // Execute the schema SQL. Since it's full of 'CREATE TABLE IF NOT EXISTS' and 'ADD COLUMN IF NOT EXISTS' 
-      // (Wait, CREATE TABLE IF NOT EXISTS doesn't update existing tables).
-      // We will explicitly apply the phone auth migration here.
-      
-      console.log('Applying phone auth & store settings migrations...');
-      await client.query(`
-        ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
-        ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
-        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-        ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
-      `);
-      
-      console.log('Applying base schema updates...');
-      await client.query(schemaSQL);
-
-      console.log(`✅ Successfully migrated ${t.db_name}`);
+      await migrateDatabase(client, dbName);
+      await client.query(schemaSQL).catch((e) => console.warn(`Schema template notice for ${dbName}:`, e.message));
+      console.log(`✅ Successfully migrated ${dbName}`);
     } catch (err) {
-      console.error(`❌ Failed to migrate ${t.db_name}:`, err.message);
+      console.error(`❌ Failed to migrate ${dbName}:`, err.message);
     } finally {
-      await client.end();
+      await client.end().catch(() => {});
     }
   }
 
