@@ -192,12 +192,12 @@ router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
   try {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
     res.json(settings ? toPlain(settings) : {});
   } catch (err) {
     if (err.message && err.message.toLowerCase().includes('column')) {
       await ensureStoreSettingsSchema(req);
-      const [settings] = await StoreSetting.findAll({ limit: 1 });
+      const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
       return res.json(settings ? toPlain(settings) : {});
     }
     throw err;
@@ -566,12 +566,12 @@ router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res
   await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
   try {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
     res.json(settings ? toPlain(settings) : {});
   } catch (err) {
     if (err.message && err.message.toLowerCase().includes('column')) {
       await ensureStoreSettingsSchema(req);
-      const [settings] = await StoreSetting.findAll({ limit: 1 });
+      const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
       return res.json(settings ? toPlain(settings) : {});
     }
     throw err;
@@ -586,9 +586,9 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
   const updateOrInsert = async () => {
-    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
     if (settings) {
-      await settings.update(patch);
+      await settings.update({ ...patch, updated_at: new Date() });
       return settings;
     } else {
       const row = await StoreSetting.create(patch);

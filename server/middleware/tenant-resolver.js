@@ -53,11 +53,22 @@ export async function tenantResolver(req, res, next) {
   // Use full Host header (includes port) — e.g. "72.60.222.141:9100"
   const host = req.headers.host || req.hostname;
 
-  // Bypass for health checks and SA routes on localhost
+  // Fallback to default database for localhost development
   if (isLocalhostHost(host)) {
-    req.tenant       = null;
-    req.tenantDb     = null;
-    req.tenantModels = null;
+    const { sequelizeInstance, tenantModels } = await getOrCreateTenantConnection(
+      'localhost',
+      {
+        db_host:     process.env.DB_HOST || 'localhost',
+        db_port:     Number(process.env.DB_PORT) || 5432,
+        db_name:     process.env.DB_NAME || 'allinone',
+        db_user:     process.env.DB_USER || 'postgres',
+        db_password: process.env.DB_PASSWORD || 'admin',
+      },
+    );
+    req.tenant       = { id: 'default-tenant', domain: 'localhost', business_name: 'Default Store', status: 'active' };
+    req.tenantDb     = sequelizeInstance;
+    req.tenantModels = tenantModels;
+    req.tenantJwtSecret = process.env.JWT_SECRET || 'allinone-dev-secret';
     return next();
   }
 
