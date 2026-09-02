@@ -155,36 +155,39 @@ router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
 // ── Store Info (public) ───────────────────────────────────────────────────────
 async function ensureStoreSettingsSchema(req) {
   if (!req.tenantDb) return;
-  try {
-    await req.tenantDb.query(`
-      CREATE TABLE IF NOT EXISTS store_settings (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        store_name text NOT NULL DEFAULT '',
-        tagline text NOT NULL DEFAULT 'Grocery Mart',
-        logo_url text NOT NULL DEFAULT '',
-        phone text NOT NULL DEFAULT '',
-        email text NOT NULL DEFAULT '',
-        address text NOT NULL DEFAULT '',
-        gstin text NOT NULL DEFAULT '',
-        return_policy text,
-        grievance_officer text,
-        delivery_areas text NOT NULL DEFAULT '',
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
-    `);
-  } catch (err) {
-    console.error('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS store_settings (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      store_name text NOT NULL DEFAULT '',
+      tagline text NOT NULL DEFAULT 'Grocery Mart',
+      logo_url text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      address text NOT NULL DEFAULT '',
+      gstin text NOT NULL DEFAULT '',
+      return_policy text,
+      grievance_officer text,
+      delivery_areas text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart'`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`
+  ];
+  for (const sql of statements) {
+    try {
+      await req.tenantDb.query(sql);
+    } catch (err) {
+      console.error('[TenantAPI] ensureStoreSettingsSchema statement notice:', err.message);
+    }
   }
 }
 
