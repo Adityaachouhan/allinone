@@ -110,7 +110,7 @@ export async function tenantResolver(req, res, next) {
 
     // ── 4. Get/create pooled connection for this tenant ──────────────────────
     // Connection is keyed strictly to this tenant's domain — never shared
-    const { sequelizeInstance, tenantModels } = getOrCreateTenantConnection(
+    const { sequelizeInstance, tenantModels } = await getOrCreateTenantConnection(
       tenant.domain,
       {
         db_host:     tenant.db_host,

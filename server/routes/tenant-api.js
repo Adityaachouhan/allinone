@@ -172,16 +172,17 @@ async function ensureStoreSettingsSchema(req) {
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       );
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
     `);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';`);
   } catch (err) {
     console.error('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
   }
@@ -190,8 +191,17 @@ async function ensureStoreSettingsSchema(req) {
 router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  try {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  } catch (err) {
+    if (err.message && err.message.toLowerCase().includes('column')) {
+      await ensureStoreSettingsSchema(req);
+      const [settings] = await StoreSetting.findAll({ limit: 1 });
+      return res.json(settings ? toPlain(settings) : {});
+    }
+    throw err;
+  }
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -555,8 +565,17 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  try {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    res.json(settings ? toPlain(settings) : {});
+  } catch (err) {
+    if (err.message && err.message.toLowerCase().includes('column')) {
+      await ensureStoreSettingsSchema(req);
+      const [settings] = await StoreSetting.findAll({ limit: 1 });
+      return res.json(settings ? toPlain(settings) : {});
+    }
+    throw err;
+  }
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
@@ -566,13 +585,27 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   const patch = {};
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  if (settings) {
-    await settings.update(patch);
-    res.json(toPlain(settings));
-  } else {
-    const row = await StoreSetting.create(patch);
-    res.json(toPlain(row));
+  const updateOrInsert = async () => {
+    const [settings] = await StoreSetting.findAll({ limit: 1 });
+    if (settings) {
+      await settings.update(patch);
+      return settings;
+    } else {
+      const row = await StoreSetting.create(patch);
+      return row;
+    }
+  };
+
+  try {
+    const result = await updateOrInsert();
+    res.json(toPlain(result));
+  } catch (err) {
+    if (err.message && err.message.toLowerCase().includes('column')) {
+      await ensureStoreSettingsSchema(req);
+      const result = await updateOrInsert();
+      return res.json(toPlain(result));
+    }
+    throw err;
   }
 }));
 

@@ -29,7 +29,16 @@ async function migrateDatabase(client, dbName) {
     ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
     ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
     ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
     ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
+    ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
   `);
 }
 
