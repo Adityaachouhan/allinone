@@ -23,7 +23,8 @@ export function AdminDashboardPage() {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+
+    const loadDashboard = async () => {
       try {
         const now = new Date();
         const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -66,8 +67,36 @@ export function AdminDashboardPage() {
       } finally {
         if (mounted) setLoading(false);
       }
-    })();
+    };
+
+    loadDashboard();
     return () => { mounted = false; };
+  }, []);
+
+  // Auto-refresh dashboard when a new-order SSE event is received
+  useEffect(() => {
+    const handler = async () => {
+      try {
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const allOrders = await db.listOrders();
+        const ordersToday = allOrders.filter((o) => new Date(o.created_at).getTime() >= startToday);
+        const pending = allOrders.filter((o) =>
+          ['placed', 'packed', 'out_for_delivery'].includes(o.status),
+        );
+        setStats((prev) => ({
+          ...prev,
+          ordersToday: ordersToday.length,
+          revenueToday: ordersToday.reduce((s, o) => s + Number(o.total), 0),
+          pendingOrders: pending.length,
+        }));
+        setRecentOrders(allOrders.slice(0, 5));
+      } catch {
+        // Non-critical refresh — silently ignore errors
+      }
+    };
+    window.addEventListener('new-order', handler);
+    return () => window.removeEventListener('new-order', handler);
   }, []);
 
   const maxSale = Math.max(...salesData.map((d) => d.total), 1);

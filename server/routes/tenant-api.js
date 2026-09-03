@@ -252,7 +252,25 @@ router.get('/admin/auth/me', authRequired, asyncH(async (req, res) => {
   res.json({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
 }));
 
-router.get('/admin/notifications/stream', authRequired, requireAdmin, (req, res) => {
+router.get('/admin/notifications/stream', (req, res) => {
+  // NOTE: The browser's EventSource API cannot send custom headers (e.g. Authorization: Bearer).
+  // We therefore accept the JWT via the ?token= query param as a safe alternative for SSE only.
+  const rawToken = req.headers.authorization?.slice(7) || req.query.token;
+  if (!rawToken) {
+    console.warn('[SSE] Stream request rejected — no token provided');
+    return res.status(401).end();
+  }
+  try {
+    req.user = jwt.verify(rawToken, req.tenantJwtSecret);
+  } catch {
+    console.warn('[SSE] Stream request rejected — invalid or expired token');
+    return res.status(401).end();
+  }
+  if (req.user._type !== 'tenant_admin') {
+    console.warn('[SSE] Stream request rejected — not a tenant admin');
+    return res.status(403).end();
+  }
+  console.log(`[SSE] Admin connected — tenant: ${req.tenant?.domain}, admin: ${req.user.email}`);
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -459,9 +477,27 @@ router.post('/orders', authRequired, asyncH(async (req, res) => {
     }
     return createdOrder;
   });
-  
-  // Notify admin of the new order
-  sseManager.notifyTenant(req.tenant.id, { event: 'new_order', orderNumber: created.order_number });
+
+  // Notify admin — fetch the customer profile to include name in the notification
+  try {
+    const { Profile } = req.tenantModels;
+    const customerProfile = await Profile.findByPk(created.user_id, {
+      attributes: ['full_name', 'phone'],
+    });
+    const notificationPayload = {
+      event:        'new_order',
+      id:           created.id,
+      orderNumber:  created.order_number,
+      customerName: customerProfile?.full_name || 'Customer',
+      total:        num(created.total),
+      createdAt:    created.created_at,
+    };
+    sseManager.notifyTenant(req.tenant.id, notificationPayload);
+    console.log(`[Order] New order created: ${created.order_number} — SSE notification emitted to tenant ${req.tenant?.domain}`);
+  } catch (notifyErr) {
+    // Notification failure must never break the order response
+    console.error('[SSE] Failed to emit new_order notification:', notifyErr.message);
+  }
 
   res.json(mapOrder(created));
 }));
