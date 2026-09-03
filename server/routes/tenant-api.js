@@ -272,8 +272,11 @@ router.get('/admin/notifications/stream', (req, res) => {
   }
   console.log(`[SSE] Admin connected — tenant: ${req.tenant?.domain}, admin: ${req.user.email}`);
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  // CRITICAL for nginx: disable proxy buffering so events flow through immediately.
+  // Without this, nginx buffers the entire SSE stream and events never reach the browser.
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   sseManager.addClient(req.tenant.id, res);
 });
