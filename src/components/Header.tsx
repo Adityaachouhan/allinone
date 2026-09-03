@@ -13,7 +13,7 @@ export function Header({ categories }: { categories: Category[] }) {
   const navigate = useNavigate();
   const route = useRoute();
   const { itemCount } = useCart();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { storeSettings } = useStoreSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -174,13 +174,13 @@ export function Header({ categories }: { categories: Category[] }) {
           {/* Account + Cart — hidden on mobile (bottom nav covers these) */}
           <div className="ml-auto hidden items-center gap-1 sm:gap-2 lg:ml-0 lg:flex shrink-0">
             <button
-              onClick={() => navigate(profile ? '/account' : '/login')}
+              onClick={() => navigate(session ? '/account' : '/login')}
               className="flex flex-col items-center rounded-lg px-2 py-1 text-gray-700 hover:bg-gray-100 sm:flex-row sm:gap-2"
-              aria-label={profile ? 'My account' : 'Login'}
+              aria-label={session ? 'My account' : 'Login'}
             >
               <User size={22} />
               <span className="hidden text-xs sm:block">
-                {profile ? profile.full_name?.split(' ')[0] || 'Account' : 'Login'}
+                {session && profile ? profile.full_name?.split(' ')[0] || 'Account' : 'Login'}
               </span>
             </button>
 

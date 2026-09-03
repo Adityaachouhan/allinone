@@ -44,6 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     db.signOut();
+    try {
+      localStorage.removeItem('aio_cart');
+    } catch {}
+    window.dispatchEvent(new Event('aio_signout'));
     setProfile(null);
     setSessionState(null);
   };
