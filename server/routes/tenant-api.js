@@ -153,14 +153,54 @@ router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
 });
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
-// NOTE: Schema migrations (CREATE TABLE IF NOT EXISTS store_settings, ALTER TABLE
-// ADD COLUMN IF NOT EXISTS tagline, etc.) are handled centrally in
-// connection-pool.js → runSchemaMigrations(), which runs once per domain per
-// server process. This stub is kept so call-sites below remain unchanged, but
-// there is no duplicate SQL here that can drift out of sync.
-async function ensureStoreSettingsSchema(_req) {
-  // Migrations already guaranteed by connection-pool.js on first connection per domain.
-  // Nothing more to do here.
+// Self-healing schema guard: ensures all expected store_settings columns exist
+// even on tenant DBs that pre-date the column. Safe to call on every request
+// because every statement uses IF NOT EXISTS. The connection-pool startup
+// migrations are the primary path; this is a belt-and-suspenders fallback
+// (e.g. when the server was already running when a new column was deployed).
+const STORE_SETTINGS_COLUMNS = [
+  `CREATE TABLE IF NOT EXISTS store_settings (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_name text NOT NULL DEFAULT '',
+    tagline text NOT NULL DEFAULT 'Grocery Mart',
+    logo_url text NOT NULL DEFAULT '',
+    phone text NOT NULL DEFAULT '',
+    email text NOT NULL DEFAULT '',
+    address text NOT NULL DEFAULT '',
+    gstin text NOT NULL DEFAULT '',
+    return_policy text,
+    grievance_officer text,
+    delivery_areas text NOT NULL DEFAULT '',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart'`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`,
+];
+
+// Per-request guard: tracks which tenant DBs have already been healed in this
+// process so we avoid running 11 ALTER TABLE statements on every single request.
+const healedDomains = new Set();
+
+async function ensureStoreSettingsSchema(req) {
+  const domain = req.tenant?.domain;
+  if (domain && healedDomains.has(domain)) return;
+  for (const stmt of STORE_SETTINGS_COLUMNS) {
+    try {
+      await req.tenantDb.query(stmt);
+    } catch (err) {
+      console.warn(`[StoreSettings] Schema heal notice for "${domain}":`, err.message);
+    }
+  }
+  if (domain) healedDomains.add(domain);
 }
 
 router.get('/store', asyncH(async (req, res) => {
