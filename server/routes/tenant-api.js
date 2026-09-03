@@ -193,18 +193,11 @@ async function ensureStoreSettingsSchema(req) {
 
 router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  try {
-    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  } catch (err) {
-    if (err.message && err.message.toLowerCase().includes('column')) {
-      await ensureStoreSettingsSchema(req);
-      const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
-      return res.json(settings ? toPlain(settings) : {});
-    }
-    throw err;
-  }
+  const [rows] = await req.tenantDb.query(
+    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  res.json(Array.isArray(rows) ? (rows[0] ?? {}) : (rows ?? {}));
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -565,51 +558,64 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 }));
 
 // ── Store Settings (admin) ────────────────────────────────────────────────────
+// NOTE: These routes intentionally use raw SQL (req.tenantDb.query) instead of
+// Sequelize model methods. Sequelize caches the model's column list at definition
+// time. If the DB column didn't exist when the connection was first established
+// (e.g. on an older tenant DB), Sequelize still generates SQL referencing it and
+// throws "column does not exist" even after ALTER TABLE adds it at runtime.
+// Raw SQL always reflects the live DB column state.
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  try {
-    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
-    res.json(settings ? toPlain(settings) : {});
-  } catch (err) {
-    if (err.message && err.message.toLowerCase().includes('column')) {
-      await ensureStoreSettingsSchema(req);
-      const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
-      return res.json(settings ? toPlain(settings) : {});
-    }
-    throw err;
-  }
+  const [rows] = await req.tenantDb.query(
+    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  res.json(Array.isArray(rows) ? (rows[0] ?? {}) : (rows ?? {}));
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  // 1. Ensure all columns exist in the DB (adds tagline etc. if missing)
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  const fields = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
+
+  const ALLOWED = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
   const patch = {};
-  for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
+  for (const key of ALLOWED) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
-  const updateOrInsert = async () => {
-    const [settings] = await StoreSetting.findAll({ order: [['updated_at', 'DESC']], limit: 1 });
-    if (settings) {
-      await settings.update({ ...patch, updated_at: new Date() });
-      return settings;
-    } else {
-      const row = await StoreSetting.create(patch);
-      return row;
-    }
-  };
+  // 2. Check if a row already exists
+  const [existingRows] = await req.tenantDb.query(
+    `SELECT id FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  const existing = Array.isArray(existingRows) ? existingRows[0] : existingRows;
 
-  try {
-    const result = await updateOrInsert();
-    res.json(toPlain(result));
-  } catch (err) {
-    if (err.message && err.message.toLowerCase().includes('column')) {
-      await ensureStoreSettingsSchema(req);
-      const result = await updateOrInsert();
-      return res.json(toPlain(result));
+  if (existing?.id) {
+    // 3a. UPDATE existing row using raw SQL — bypasses Sequelize column cache
+    const setClauses = Object.keys(patch).map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+    const values = Object.values(patch);
+    if (setClauses) {
+      values.push(existing.id);
+      await req.tenantDb.query(
+        `UPDATE store_settings SET ${setClauses}, updated_at = now() WHERE id = $${values.length}`,
+        { bind: values }
+      );
     }
-    throw err;
+  } else {
+    // 3b. INSERT new row
+    if (Object.keys(patch).length === 0) patch.store_name = '';
+    const cols = Object.keys(patch).map((k) => `"${k}"`).join(', ');
+    const placeholders = Object.keys(patch).map((_, i) => `$${i + 1}`).join(', ');
+    await req.tenantDb.query(
+      `INSERT INTO store_settings (${cols}) VALUES (${placeholders})`,
+      { bind: Object.values(patch) }
+    );
   }
+
+  // 4. Return updated row
+  const [updatedRows] = await req.tenantDb.query(
+    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  res.json(Array.isArray(updatedRows) ? (updatedRows[0] ?? {}) : (updatedRows ?? {}));
 }));
 
 export default router;
