@@ -153,42 +153,14 @@ router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
 });
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
-async function ensureStoreSettingsSchema(req) {
-  if (!req.tenantDb) return;
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS store_settings (
-      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-      store_name text NOT NULL DEFAULT '',
-      tagline text NOT NULL DEFAULT 'Grocery Mart',
-      logo_url text NOT NULL DEFAULT '',
-      phone text NOT NULL DEFAULT '',
-      email text NOT NULL DEFAULT '',
-      address text NOT NULL DEFAULT '',
-      gstin text NOT NULL DEFAULT '',
-      return_policy text,
-      grievance_officer text,
-      delivery_areas text NOT NULL DEFAULT '',
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    )`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart'`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT ''`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
-    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`
-  ];
-  for (const sql of statements) {
-    try {
-      await req.tenantDb.query(sql);
-    } catch (err) {
-      console.error('[TenantAPI] ensureStoreSettingsSchema statement notice:', err.message);
-    }
-  }
+// NOTE: Schema migrations (CREATE TABLE IF NOT EXISTS store_settings, ALTER TABLE
+// ADD COLUMN IF NOT EXISTS tagline, etc.) are handled centrally in
+// connection-pool.js → runSchemaMigrations(), which runs once per domain per
+// server process. This stub is kept so call-sites below remain unchanged, but
+// there is no duplicate SQL here that can drift out of sync.
+async function ensureStoreSettingsSchema(_req) {
+  // Migrations already guaranteed by connection-pool.js on first connection per domain.
+  // Nothing more to do here.
 }
 
 router.get('/store', asyncH(async (req, res) => {
