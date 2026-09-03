@@ -149,38 +149,44 @@ export async function getOrCreateTenantConnection(domain, { db_host, db_port, db
 
   const tenantModels = buildTenantModels(seq);
 
-  // Auto-ensure database columns on connection initialization
-  try {
-    await seq.query(`
-      CREATE TABLE IF NOT EXISTS store_settings (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        store_name text NOT NULL DEFAULT '',
-        tagline text NOT NULL DEFAULT 'Grocery Mart',
-        logo_url text NOT NULL DEFAULT '',
-        phone text NOT NULL DEFAULT '',
-        email text NOT NULL DEFAULT '',
-        address text NOT NULL DEFAULT '',
-        gstin text NOT NULL DEFAULT '',
-        return_policy text,
-        grievance_officer text,
-        delivery_areas text NOT NULL DEFAULT '',
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
-      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE;
-    `);
-  } catch (err) {
-    console.warn(`[Pool] Schema auto-migration notice for "${db_name}":`, err.message);
+  // Auto-ensure database columns on connection initialization.
+  // IMPORTANT: Each statement must be run individually — Sequelize's seq.query()
+  // only executes the first statement in a multi-statement batch, silently
+  // dropping all subsequent ALTER TABLE calls.
+  const initStatements = [
+    `CREATE TABLE IF NOT EXISTS store_settings (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      store_name text NOT NULL DEFAULT '',
+      tagline text NOT NULL DEFAULT 'Grocery Mart',
+      logo_url text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      address text NOT NULL DEFAULT '',
+      gstin text NOT NULL DEFAULT '',
+      return_policy text,
+      grievance_officer text,
+      delivery_areas text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart'`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT ''`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
+    `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS phone text UNIQUE`,
+  ];
+  for (const stmt of initStatements) {
+    try {
+      await seq.query(stmt);
+    } catch (err) {
+      console.warn(`[Pool] Schema auto-migration notice for "${db_name}":`, err.message);
+    }
   }
 
   tenantPool.set(domain, seq, tenantModels);
