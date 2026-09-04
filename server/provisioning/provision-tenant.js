@@ -214,13 +214,16 @@ export async function provisionTenant({
       const client = openClient(dbName);
       await client.connect();
       await client.query(schemaSQL);
-      // Grant schema objects to the tenant role
+      // Grant schema objects and transfer ownership to the tenant role
+      await client.query(`GRANT ALL ON SCHEMA public TO "${dbRole}"`);
       await client.query(`GRANT ALL ON ALL TABLES    IN SCHEMA public TO "${dbRole}"`);
       await client.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO "${dbRole}"`);
       await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO "${dbRole}"`);
       await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "${dbRole}"`);
+      await client.query(`REASSIGN OWNED BY "${MASTER_DB_USER}" TO "${dbRole}"`).catch(() => {});
+      await client.query(`ALTER SCHEMA public OWNER TO "${dbRole}"`).catch(() => {});
       await client.end();
-      console.log(`[Provision] Schema applied to "${dbName}".`);
+      console.log(`[Provision] Schema applied and table ownership transferred to "${dbRole}" in "${dbName}".`);
     }
 
     // ── 7. Create tenant's first admin user ───────────────────────────────────

@@ -193,6 +193,7 @@ const healedDomains = new Set();
 async function ensureStoreSettingsSchema(req) {
   const domain = req.tenant?.domain;
   if (domain && healedDomains.has(domain)) return;
+  if (domain) healedDomains.add(domain);
   for (const stmt of STORE_SETTINGS_COLUMNS) {
     try {
       await req.tenantDb.query(stmt);
@@ -200,7 +201,6 @@ async function ensureStoreSettingsSchema(req) {
       console.warn(`[StoreSettings] Schema heal notice for "${domain}":`, err.message);
     }
   }
-  if (domain) healedDomains.add(domain);
 }
 
 async function getLatestStoreSettings(tenantDb) {
@@ -428,10 +428,17 @@ router.get('/addresses', authRequired, asyncH(async (req, res) => {
 }));
 
 router.post('/addresses', authRequired, asyncH(async (req, res) => {
-  const { Address } = req.tenantModels;
+  const { Address, User } = req.tenantModels;
   const a = req.body || {};
   if (!a.full_name || !a.phone || !a.line1 || !a.city || !a.pincode)
     return res.status(400).json({ error: 'Please fill all required address fields.' });
+
+  // Verify that the user exists in customer users table
+  const user = await User.findByPk(req.user.id);
+  if (!user) {
+    return res.status(400).json({ error: 'Customer account not found. Addresses can only be added for registered customer accounts.' });
+  }
+
   const row = await Address.create({ user_id: req.user.id, label: a.label || 'Home', full_name: a.full_name, phone: a.phone, line1: a.line1, line2: a.line2 || null, city: a.city, pincode: a.pincode, is_default: a.is_default ?? false });
   res.json(toPlain(row));
 }));

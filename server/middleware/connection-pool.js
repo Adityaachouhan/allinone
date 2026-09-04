@@ -155,6 +155,7 @@ const migratedDomains = new Set();
 
 async function runSchemaMigrations(seq, domain, db_name) {
   if (migratedDomains.has(domain)) return;
+  migratedDomains.add(domain);
   for (const stmt of SCHEMA_MIGRATIONS) {
     try {
       await seq.query(stmt);
@@ -162,7 +163,6 @@ async function runSchemaMigrations(seq, domain, db_name) {
       console.warn(`[Pool] Schema auto-migration notice for "${db_name}":`, err.message);
     }
   }
-  migratedDomains.add(domain);
   console.log(`[Pool] Schema migrations applied for "${domain}" ("${db_name}").`);
 }
 

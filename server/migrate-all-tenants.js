@@ -92,13 +92,14 @@ async function migrateAllTenants() {
   console.log(`Discovered ${dbTargets.size} databases to migrate:`, [...dbTargets.keys()]);
   const schemaSQL = readFileSync(join(__dir, 'provisioning', 'tenant-schema-template.sql'), 'utf8');
 
-  for (const [dbName, dbPassword] of dbTargets.entries()) {
+  for (const [dbName] of dbTargets.entries()) {
     console.log(`\n--- Migrating DB: ${dbName} ---`);
+    // Connect using administrative user (user/password) so migrations run with full privileges
     const client = new Client({
       host,
       port,
       user,
-      password: dbPassword || password,
+      password,
       database: dbName,
     });
 
@@ -106,7 +107,20 @@ async function migrateAllTenants() {
       await client.connect();
       await migrateDatabase(client, dbName);
       await client.query(schemaSQL).catch((e) => console.warn(`Schema template notice for ${dbName}:`, e.message));
-      console.log(`✅ Successfully migrated ${dbName}`);
+
+      // Reassign ownership and grant schema privileges to tenant role if present
+      const dbUser = dbName.startsWith('tenant_') ? dbName.replace(/^tenant_/, 'role_') : null;
+      if (dbUser) {
+        await client.query(`GRANT ALL ON SCHEMA public TO "${dbUser}"`).catch(() => {});
+        await client.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO "${dbUser}"`).catch(() => {});
+        await client.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO "${dbUser}"`).catch(() => {});
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO "${dbUser}"`).catch(() => {});
+        await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO "${dbUser}"`).catch(() => {});
+        await client.query(`REASSIGN OWNED BY "${user}" TO "${dbUser}"`).catch(() => {});
+        await client.query(`ALTER SCHEMA public OWNER TO "${dbUser}"`).catch(() => {});
+      }
+
+      console.log(`✅ Successfully migrated and updated permissions for ${dbName}`);
     } catch (err) {
       console.error(`❌ Failed to migrate ${dbName}:`, err.message);
     } finally {
