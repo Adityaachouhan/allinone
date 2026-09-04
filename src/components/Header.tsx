@@ -107,7 +107,7 @@ export function Header({ categories }: { categories: Category[] }) {
             )}
             <div className="text-left">
               <span className="block font-heading text-base sm:text-lg font-bold leading-none text-primary-700 truncate max-w-[150px] sm:max-w-none">
-                {storeSettings.store_name || 'All In One'}
+                {storeSettings.store_name || 'Grocery Mart'}
               </span>
               <span className="block text-[10px] text-gray-500 truncate max-w-[150px] sm:max-w-none">{storeSettings.tagline || 'Grocery Mart'}</span>
             </div>
@@ -270,7 +270,7 @@ export function Header({ categories }: { categories: Category[] }) {
                 )}
                 <div className="min-w-0">
                   <span className="block font-heading font-bold text-primary-700 text-sm leading-none truncate">
-                    {storeSettings.store_name || 'All In One'}
+                    {storeSettings.store_name || 'Grocery Mart'}
                   </span>
                   <span className="block text-[10px] text-gray-500 truncate">{storeSettings.tagline || 'Grocery Mart'}</span>
                 </div>

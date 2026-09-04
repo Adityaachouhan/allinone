@@ -64,10 +64,10 @@ export function AuthPage() {
               </div>
             )}
             <h1 className="mt-3 font-heading text-xl font-bold text-primary-700">
-              {storeSettings.store_name || 'All In One'}
+              {storeSettings.store_name || 'Grocery Mart'}
             </h1>
             <p className="text-sm text-gray-500">
-              {mode === 'login' ? 'Welcome back! Sign in to your account.' : 'Create your account to start shopping.'}
+              {mode === 'login' ? 'Sign in to access your orders & address' : 'Create an account to start shopping'}
             </p>
           </div>
 

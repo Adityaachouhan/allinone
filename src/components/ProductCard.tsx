@@ -111,7 +111,7 @@ export function ProductCard({ product }: { product: Product }) {
             margin: 0,
           }}
         >
-          {product.brand || 'All In One'}
+          {product.brand || 'Fresh'}
         </p>
 
         {/* Product name – always exactly 40px (2 lines × 20px), clipped */}
