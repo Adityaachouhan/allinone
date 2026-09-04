@@ -10,6 +10,8 @@ import type { Address, Order, OrderItem } from '@/types';
 import { formatCurrency, formatDate, orderStatusLabels, ORDER_STATUS_FLOW } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
 
+import { AuthPage } from '@/pages/AuthPage';
+
 type Tab = 'orders' | 'addresses' | 'profile';
 
 export function AccountPage() {
@@ -154,7 +156,7 @@ export function AccountPage() {
     return <div className="flex min-h-[40vh] items-center justify-center"><Spinner size={32} /></div>;
   }
 
-  if (!session) return null;
+  if (!session) return <AuthPage />;
 
   // Order detail modal
   if (selectedOrder) {

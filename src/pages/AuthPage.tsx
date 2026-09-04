@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Leaf, Mail, Lock, User as UserIcon, Phone, Loader2 } from 'lucide-react';
 import * as db from '@/lib/db';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -8,9 +8,16 @@ import { useStoreSettings } from '@/context/StoreContext';
 export function AuthPage() {
   const navigate = useNavigate();
   const route = useRoute();
-  const { refreshProfile } = useAuth();
+  const { session, refreshProfile } = useAuth();
   const { storeSettings } = useStoreSettings();
   const redirect = route.query.redirect || '/account';
+
+  // Redirect to account if already logged in
+  useEffect(() => {
+    if (session) {
+      navigate(redirect);
+    }
+  }, [session, redirect, navigate]);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
