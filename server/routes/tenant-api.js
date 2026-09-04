@@ -203,13 +203,24 @@ async function ensureStoreSettingsSchema(req) {
   if (domain) healedDomains.add(domain);
 }
 
+async function getLatestStoreSettings(tenantDb) {
+  const rows = await tenantDb.query(
+    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  if (Array.isArray(rows) && rows.length > 0) {
+    return rows[0];
+  }
+  if (rows && typeof rows === 'object' && !Array.isArray(rows) && rows.id) {
+    return rows;
+  }
+  return {};
+}
+
 router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const [rows] = await req.tenantDb.query(
-    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
-    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
-  );
-  res.json(Array.isArray(rows) ? (rows[0] ?? {}) : (rows ?? {}));
+  const data = await getLatestStoreSettings(req.tenantDb);
+  res.json(data);
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -578,11 +589,8 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 // Raw SQL always reflects the live DB column state.
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const [rows] = await req.tenantDb.query(
-    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
-    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
-  );
-  res.json(Array.isArray(rows) ? (rows[0] ?? {}) : (rows ?? {}));
+  const data = await getLatestStoreSettings(req.tenantDb);
+  res.json(data);
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
@@ -594,11 +602,7 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   for (const key of ALLOWED) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
   // 2. Check if a row already exists
-  const [existingRows] = await req.tenantDb.query(
-    `SELECT id FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
-    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
-  );
-  const existing = Array.isArray(existingRows) ? existingRows[0] : existingRows;
+  const existing = await getLatestStoreSettings(req.tenantDb);
 
   if (existing?.id) {
     // 3a. UPDATE existing row using raw SQL — bypasses Sequelize column cache
@@ -623,11 +627,8 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   }
 
   // 4. Return updated row
-  const [updatedRows] = await req.tenantDb.query(
-    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
-    { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
-  );
-  res.json(Array.isArray(updatedRows) ? (updatedRows[0] ?? {}) : (updatedRows ?? {}));
+  const updatedData = await getLatestStoreSettings(req.tenantDb);
+  res.json(updatedData);
 }));
 
 export default router;

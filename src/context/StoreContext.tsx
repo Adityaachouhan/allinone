@@ -31,16 +31,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const fetchStoreSettings = async () => {
     try {
       const data = await db.getPublicStoreSettings();
-      if (data && Object.keys(data).length > 0) {
-        setStoreSettings((prev) => ({
-          ...DEFAULT_STORE_SETTINGS,
-          ...data,
-          store_name: data.store_name?.trim() || prev.store_name,
-          tagline: data.tagline?.trim() ?? prev.tagline,
-          phone: data.phone?.trim() || prev.phone,
-          email: data.email?.trim() || prev.email,
-          address: data.address?.trim() || prev.address,
-        }));
+      if (data && typeof data === 'object') {
+        setStoreSettings({
+          store_name: typeof data.store_name === 'string' && data.store_name.trim() !== '' ? data.store_name.trim() : DEFAULT_STORE_SETTINGS.store_name,
+          tagline: typeof data.tagline === 'string' ? data.tagline : DEFAULT_STORE_SETTINGS.tagline,
+          logo_url: data.logo_url ?? DEFAULT_STORE_SETTINGS.logo_url,
+          phone: typeof data.phone === 'string' && data.phone.trim() !== '' ? data.phone.trim() : DEFAULT_STORE_SETTINGS.phone,
+          email: typeof data.email === 'string' && data.email.trim() !== '' ? data.email.trim() : DEFAULT_STORE_SETTINGS.email,
+          address: typeof data.address === 'string' && data.address.trim() !== '' ? data.address.trim() : DEFAULT_STORE_SETTINGS.address,
+          gstin: data.gstin ?? DEFAULT_STORE_SETTINGS.gstin,
+          return_policy: data.return_policy ?? DEFAULT_STORE_SETTINGS.return_policy,
+          grievance_officer: data.grievance_officer ?? DEFAULT_STORE_SETTINGS.grievance_officer,
+          delivery_areas: data.delivery_areas ?? DEFAULT_STORE_SETTINGS.delivery_areas,
+        });
       }
     } catch (err) {
       console.error('Failed to load store settings:', err);

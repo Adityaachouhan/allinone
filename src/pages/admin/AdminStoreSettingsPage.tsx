@@ -67,7 +67,10 @@ export function AdminStoreSettingsPage() {
     setSaved(false);
     try {
       // Instantly update backend database AND global StoreContext
-      await syncContextStoreSettings(updatedData);
+      const savedRes = await syncContextStoreSettings(updatedData);
+      if (savedRes && typeof savedRes === 'object') {
+        setForm((prev) => ({ ...prev, ...savedRes }));
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3500);
     } catch (err: unknown) {
