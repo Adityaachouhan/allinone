@@ -29,6 +29,17 @@ export function AdminOrdersPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Auto-refresh when a new-order SSE event is received by AdminLayout
+  useEffect(() => {
+    const handler = () => {
+      load().catch(console.error);
+    };
+    window.addEventListener('new-order', handler);
+    return () => window.removeEventListener('new-order', handler);
+  // load is defined above and stable across renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = orders.filter((o) => {
     const matchStatus = statusFilter === 'all' || o.status === statusFilter;
     const q = search.toLowerCase();
