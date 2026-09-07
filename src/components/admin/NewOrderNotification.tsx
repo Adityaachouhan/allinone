@@ -59,7 +59,7 @@ function NotificationCard({
 
   const handleViewOrder = () => {
     onClose(notification.id);
-    navigate('/admin/orders');
+    navigate(`/admin/orders?order=${encodeURIComponent(notification.orderNumber)}`);
   };
 
   const formattedAmount = new Intl.NumberFormat('en-IN', {
