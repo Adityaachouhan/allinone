@@ -123,7 +123,7 @@ function NotificationBellButton({
   history: NotificationHistoryItem[];
   unreadCount: number;
   onMarkAllRead: () => void;
-  onNavigate: () => void;
+  onNavigate: (orderNumber?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -332,7 +332,7 @@ function NotificationBellButton({
               history.map((item, idx) => (
                 <button
                   key={item.id}
-                  onClick={() => { setOpen(false); onNavigate(); }}
+                  onClick={() => { setOpen(false); onNavigate(item.orderNumber); }}
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -414,7 +414,7 @@ function NotificationBellButton({
               }}
             >
               <button
-                onClick={() => { setOpen(false); onNavigate(); }}
+                onClick={() => { setOpen(false); onNavigate(); /* View all */}}
                 style={{
                   width: '100%',
                   padding: '8px',
@@ -673,7 +673,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               history={notifHistory}
               unreadCount={unreadCount}
               onMarkAllRead={markAllRead}
-              onNavigate={() => navigate('/admin/orders')}
+              onNavigate={(orderNumber) =>
+                navigate(orderNumber ? `/admin/orders?order=${encodeURIComponent(orderNumber)}` : '/admin/orders')
+              }
             />
           </div>
         </div>

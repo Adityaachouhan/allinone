@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Search, ShoppingBag, ChevronRight, MapPin, CreditCard } from 'lucide-react';
 import * as db from '@/lib/db';
 import type { Order, OrderItem, Profile } from '@/types';
 import { formatCurrency, formatDate, orderStatusLabels, ORDER_STATUS_FLOW } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
+import { useRoute } from '@/lib/router';
 
 type OrderWithProfile = Order & { profile?: Profile };
 
 export function AdminOrdersPage() {
+  const route = useRoute();
   const [orders, setOrders] = useState<OrderWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -15,18 +17,38 @@ export function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithProfile | null>(null);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [updating, setUpdating] = useState(false);
+  // Track whether we've already auto-opened the order from the query param
+  const autoOpenedRef = useRef(false);
 
   const load = async () => {
-    setOrders(await db.listOrders());
+    const data = await db.listOrders();
+    setOrders(data);
+    return data;
   };
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      await load();
-      if (mounted) setLoading(false);
+      const data = await load();
+      if (mounted) {
+        setLoading(false);
+        // Auto-open a specific order if the URL contains ?order=<orderNumber>
+        const targetOrderNumber = route.query['order'];
+        if (targetOrderNumber && !autoOpenedRef.current) {
+          autoOpenedRef.current = true;
+          const match = data.find((o) => o.order_number === targetOrderNumber);
+          if (match) {
+            const items = await db.listOrderItems(match.id);
+            if (mounted) {
+              setSelectedOrder(match);
+              setOrderItems(items);
+            }
+          }
+        }
+      }
     })();
     return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-refresh when a new-order SSE event is received by AdminLayout
