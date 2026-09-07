@@ -48,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('aio_session');
       localStorage.removeItem('aio_token');
       localStorage.removeItem('aio_cart');
-    } catch {}
+    } catch {
+      // ignore storage access errors
+    }
     setProfile(null);
     setSessionState(null);
     window.dispatchEvent(new Event('aio_signout'));

@@ -7,7 +7,7 @@ export function MobileBottomNav() {
   const navigate = useNavigate();
   const route = useRoute();
   const { itemCount } = useCart();
-  const { profile, session } = useAuth();
+  const { session } = useAuth();
 
   const items = [
     { icon: Home, label: 'Home', path: '/' },
