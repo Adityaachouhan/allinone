@@ -10,10 +10,12 @@ import type { Address, Order, OrderItem } from '@/types';
 import { formatCurrency, formatDate, orderStatusLabels, ORDER_STATUS_FLOW } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
 
+import { AuthPage } from '@/pages/AuthPage';
+
 type Tab = 'orders' | 'addresses' | 'profile';
 
 export function AccountPage() {
-  const { profile, session, signOut, refreshProfile } = useAuth();
+  const { profile, session, signOut, refreshProfile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -40,26 +42,39 @@ export function AccountPage() {
   });
   const [addrError, setAddrError] = useState('');
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !session) {
+      navigate('/login');
+    }
+  }, [session, authLoading, navigate]);
+
   useEffect(() => {
     if (!session) {
       setSelectedOrder(null);
       setOrderItems([]);
       setOrders([]);
       setAddresses([]);
+      setLoading(false);
       return;
     }
     let mounted = true;
+    setLoading(true);
     (async () => {
       try {
-        const o = await db.listOrders({ userId: session.user.id });
-        const a = await db.listAddresses(session.user.id);
-        if (!mounted) return;
+        const [o, a] = await Promise.all([
+          db.listOrders({ userId: session.user.id }),
+          db.listAddresses(session.user.id),
+        ]);
+        if (!mounted || !db.getSession()) return;
         setOrders(o);
         setAddresses(a);
         if (profile) {
-          setEditName(profile.full_name);
-          setEditPhone(profile.phone);
+          setEditName(profile.full_name || '');
+          setEditPhone(profile.phone || '');
         }
+      } catch (err) {
+        console.error(err);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -125,7 +140,7 @@ export function AccountPage() {
 
   const deleteAddress = async (id: string) => {
     await db.deleteAddress(id);
-    setAddresses((prev) => prev.filter((a) => a.id !== id));
+    setAddresses((prev) => [...prev].filter((a) => a.id !== id));
   };
 
   const handleSignOut = async () => {
@@ -133,11 +148,15 @@ export function AccountPage() {
     setOrderItems([]);
     setOrders([]);
     setAddresses([]);
-    navigate('/');
     await signOut();
+    navigate('/login');
   };
 
-  if (loading) return <div className="flex min-h-[40vh] items-center justify-center"><Spinner size={32} /></div>;
+  if (authLoading || (session && loading)) {
+    return <div className="flex min-h-[40vh] items-center justify-center"><Spinner size={32} /></div>;
+  }
+
+  if (!session) return <AuthPage />;
 
   // Order detail modal
   if (selectedOrder) {

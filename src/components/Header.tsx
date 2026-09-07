@@ -13,8 +13,8 @@ export function Header({ categories }: { categories: Category[] }) {
   const navigate = useNavigate();
   const route = useRoute();
   const { itemCount } = useCart();
-  const { profile } = useAuth();
-  const { storeSettings } = useStoreSettings();
+  const { profile, session } = useAuth();
+  const { storeSettings, loading } = useStoreSettings();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showSearch, setShowSearch] = useState(false);
@@ -107,9 +107,19 @@ export function Header({ categories }: { categories: Category[] }) {
             )}
             <div className="text-left">
               <span className="block font-heading text-base sm:text-lg font-bold leading-none text-primary-700 truncate max-w-[150px] sm:max-w-none">
-                {storeSettings.store_name || 'All In One'}
+                {loading && !storeSettings.store_name ? (
+                  <span className="inline-block h-4 sm:h-5 w-24 sm:w-28 rounded bg-gray-200 animate-pulse mt-0.5" />
+                ) : (
+                  storeSettings.store_name
+                )}
               </span>
-              <span className="block text-[10px] text-gray-500 truncate max-w-[150px] sm:max-w-none">{storeSettings.tagline || 'Grocery Mart'}</span>
+              <span className="block text-[10px] text-gray-500 truncate max-w-[150px] sm:max-w-none mt-0.5">
+                {loading && !storeSettings.tagline ? (
+                  <span className="inline-block h-2.5 w-16 rounded bg-gray-100 animate-pulse" />
+                ) : (
+                  storeSettings.tagline
+                )}
+              </span>
             </div>
           </button>
 
@@ -174,13 +184,13 @@ export function Header({ categories }: { categories: Category[] }) {
           {/* Account + Cart — hidden on mobile (bottom nav covers these) */}
           <div className="ml-auto hidden items-center gap-1 sm:gap-2 lg:ml-0 lg:flex shrink-0">
             <button
-              onClick={() => navigate(profile ? '/account' : '/login')}
+              onClick={() => navigate(session ? '/account' : '/login')}
               className="flex flex-col items-center rounded-lg px-2 py-1 text-gray-700 hover:bg-gray-100 sm:flex-row sm:gap-2"
-              aria-label={profile ? 'My account' : 'Login'}
+              aria-label={session ? 'My account' : 'Login'}
             >
               <User size={22} />
               <span className="hidden text-xs sm:block">
-                {profile ? profile.full_name?.split(' ')[0] || 'Account' : 'Login'}
+                {session && profile ? profile.full_name?.split(' ')[0] || 'Account' : 'Login'}
               </span>
             </button>
 
@@ -270,9 +280,19 @@ export function Header({ categories }: { categories: Category[] }) {
                 )}
                 <div className="min-w-0">
                   <span className="block font-heading font-bold text-primary-700 text-sm leading-none truncate">
-                    {storeSettings.store_name || 'All In One'}
+                    {loading && !storeSettings.store_name ? (
+                      <span className="inline-block h-4 w-20 rounded bg-gray-200 animate-pulse" />
+                    ) : (
+                      storeSettings.store_name
+                    )}
                   </span>
-                  <span className="block text-[10px] text-gray-500 truncate">{storeSettings.tagline || 'Grocery Mart'}</span>
+                  <span className="block text-[10px] text-gray-500 truncate mt-0.5">
+                    {loading && !storeSettings.tagline ? (
+                      <span className="inline-block h-2.5 w-14 rounded bg-gray-100 animate-pulse" />
+                    ) : (
+                      storeSettings.tagline
+                    )}
+                  </span>
                 </div>
               </div>
               <button onClick={() => setMobileMenuOpen(false)} aria-label="Close menu" className="shrink-0 ml-2">

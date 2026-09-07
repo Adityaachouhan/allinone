@@ -6,12 +6,12 @@ import { useStoreSettings } from '@/context/StoreContext';
 
 export function Footer({ categories }: { categories: Category[] }) {
   const navigate = useNavigate();
-  const { storeSettings } = useStoreSettings();
+  const { storeSettings, loading } = useStoreSettings();
 
-  const storeName = storeSettings.store_name || 'All In One';
-  const phone = storeSettings.phone || '+91 8340461426';
-  const email = storeSettings.email || 'hello@allinone.shop';
-  const address = storeSettings.address || 'Kagalnagar, Sonari, Jamshedpur, Jharkhand 831011';
+  const storeName = storeSettings.store_name || (loading ? '' : 'Grocery Mart');
+  const phone = storeSettings.phone || '';
+  const email = storeSettings.email || '';
+  const address = storeSettings.address || '';
 
   return (
     <footer className="mt-12 border-t border-gray-200 bg-white">
@@ -48,8 +48,20 @@ export function Footer({ categories }: { categories: Category[] }) {
               </div>
             )}
             <div>
-              <span className="block font-heading text-lg font-bold leading-none text-primary-700">{storeName}</span>
-              <span className="block text-xs text-gray-500 mt-0.5">{storeSettings.tagline || 'Grocery Mart'}</span>
+              <span className="block font-heading text-lg font-bold leading-none text-primary-700">
+                {loading && !storeSettings.store_name ? (
+                  <span className="inline-block h-5 w-28 rounded bg-gray-200 animate-pulse mt-0.5" />
+                ) : (
+                  storeName
+                )}
+              </span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                {loading && !storeSettings.tagline ? (
+                  <span className="inline-block h-3 w-20 rounded bg-gray-100 animate-pulse" />
+                ) : (
+                  storeSettings.tagline
+                )}
+              </span>
             </div>
           </div>
           <p className="mt-3 text-sm text-gray-600">

@@ -153,45 +153,74 @@ router.post('/upload', authRequired, requireAdmin, (req, res, next) => {
 });
 
 // ── Store Info (public) ───────────────────────────────────────────────────────
+// Self-healing schema guard: ensures all expected store_settings columns exist
+// even on tenant DBs that pre-date the column. Safe to call on every request
+// because every statement uses IF NOT EXISTS. The connection-pool startup
+// migrations are the primary path; this is a belt-and-suspenders fallback
+// (e.g. when the server was already running when a new column was deployed).
+const STORE_SETTINGS_COLUMNS = [
+  `CREATE TABLE IF NOT EXISTS store_settings (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    store_name text NOT NULL DEFAULT '',
+    tagline text NOT NULL DEFAULT 'Grocery Mart',
+    logo_url text NOT NULL DEFAULT '',
+    phone text NOT NULL DEFAULT '',
+    email text NOT NULL DEFAULT '',
+    address text NOT NULL DEFAULT '',
+    gstin text NOT NULL DEFAULT '',
+    return_policy text,
+    grievance_officer text,
+    delivery_areas text NOT NULL DEFAULT '',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart'`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`,
+];
+
+// Per-request guard: tracks which tenant DBs have already been healed in this
+// process so we avoid running 11 ALTER TABLE statements on every single request.
+const healedDomains = new Set();
+
 async function ensureStoreSettingsSchema(req) {
-  if (!req.tenantDb) return;
-  try {
-    await req.tenantDb.query(`
-      CREATE TABLE IF NOT EXISTS store_settings (
-        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        store_name text NOT NULL DEFAULT '',
-        tagline text NOT NULL DEFAULT 'Grocery Mart',
-        logo_url text NOT NULL DEFAULT '',
-        phone text NOT NULL DEFAULT '',
-        email text NOT NULL DEFAULT '',
-        address text NOT NULL DEFAULT '',
-        gstin text NOT NULL DEFAULT '',
-        return_policy text,
-        grievance_officer text,
-        delivery_areas text NOT NULL DEFAULT '',
-        created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
-      );
-    `);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;`);
-    await req.tenantDb.query(`ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';`);
-  } catch (err) {
-    console.error('[TenantAPI] ensureStoreSettingsSchema notice:', err.message);
+  const domain = req.tenant?.domain;
+  if (domain && healedDomains.has(domain)) return;
+  if (domain) healedDomains.add(domain);
+  for (const stmt of STORE_SETTINGS_COLUMNS) {
+    try {
+      await req.tenantDb.query(stmt);
+    } catch (err) {
+      console.warn(`[StoreSettings] Schema heal notice for "${domain}":`, err.message);
+    }
   }
+}
+
+async function getLatestStoreSettings(tenantDb) {
+  const rows = await tenantDb.query(
+    `SELECT * FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+    { type: tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+  );
+  if (Array.isArray(rows) && rows.length > 0) {
+    return rows[0];
+  }
+  if (rows && typeof rows === 'object' && !Array.isArray(rows) && rows.id) {
+    return rows;
+  }
+  return {};
 }
 
 router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  const data = await getLatestStoreSettings(req.tenantDb);
+  res.json(data);
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -453,10 +482,17 @@ router.get('/addresses', authRequired, asyncH(async (req, res) => {
 }));
 
 router.post('/addresses', authRequired, asyncH(async (req, res) => {
-  const { Address } = req.tenantModels;
+  const { Address, User } = req.tenantModels;
   const a = req.body || {};
   if (!a.full_name || !a.phone || !a.line1 || !a.city || !a.pincode)
     return res.status(400).json({ error: 'Please fill all required address fields.' });
+
+  // Verify that the user exists in customer users table
+  const user = await User.findByPk(req.user.id);
+  if (!user) {
+    return res.status(400).json({ error: 'Customer account not found. Addresses can only be added for registered customer accounts.' });
+  }
+
   const row = await Address.create({ user_id: req.user.id, label: a.label || 'Home', full_name: a.full_name, phone: a.phone, line1: a.line1, line2: a.line2 || null, city: a.city, pincode: a.pincode, is_default: a.is_default ?? false });
   res.json(toPlain(row));
 }));
@@ -625,20 +661,23 @@ router.patch('/profiles/me', authRequired, asyncH(async (req, res) => {
 }));
 
 // ── Store Settings (admin) ────────────────────────────────────────────────────
+// NOTE: These routes intentionally use raw SQL (req.tenantDb.query) instead of
+// Sequelize model methods. Sequelize caches the model's column list at definition
+// time. If the DB column didn't exist when the connection was first established
+// (e.g. on an older tenant DB), Sequelize still generates SQL referencing it and
+// throws "column does not exist" even after ALTER TABLE adds it at runtime.
+// Raw SQL always reflects the live DB column state.
 router.get('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  res.json(settings ? toPlain(settings) : {});
+  const data = await getLatestStoreSettings(req.tenantDb);
+  res.json(data);
 }));
 
 router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, res) => {
+  // 1. Ensure all columns exist in the DB (adds tagline etc. if missing)
   await ensureStoreSettingsSchema(req);
-  const { StoreSetting } = req.tenantModels;
-  const fields = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
-  const patch = {};
-  for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
+<<<<<<< HEAD
   const [settings] = await StoreSetting.findAll({ limit: 1 });
   if (settings) {
     await settings.update(patch);
@@ -648,7 +687,40 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
     const row = await StoreSetting.create(patch);
     sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
     res.json(toPlain(row));
+=======
+  const ALLOWED = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
+  const patch = {};
+  for (const key of ALLOWED) if (req.body[key] !== undefined) patch[key] = req.body[key];
+
+  // 2. Check if a row already exists
+  const existing = await getLatestStoreSettings(req.tenantDb);
+
+  if (existing?.id) {
+    // 3a. UPDATE existing row using raw SQL — bypasses Sequelize column cache
+    const setClauses = Object.keys(patch).map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+    const values = Object.values(patch);
+    if (setClauses) {
+      values.push(existing.id);
+      await req.tenantDb.query(
+        `UPDATE store_settings SET ${setClauses}, updated_at = now() WHERE id = $${values.length}`,
+        { bind: values }
+      );
+    }
+  } else {
+    // 3b. INSERT new row
+    if (Object.keys(patch).length === 0) patch.store_name = '';
+    const cols = Object.keys(patch).map((k) => `"${k}"`).join(', ');
+    const placeholders = Object.keys(patch).map((_, i) => `$${i + 1}`).join(', ');
+    await req.tenantDb.query(
+      `INSERT INTO store_settings (${cols}) VALUES (${placeholders})`,
+      { bind: Object.values(patch) }
+    );
+>>>>>>> c9796ffa7a763a43536f0295b2546c1f5cf43e59
   }
+
+  // 4. Return updated row
+  const updatedData = await getLatestStoreSettings(req.tenantDb);
+  res.json(updatedData);
 }));
 
 export default router;

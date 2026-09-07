@@ -153,4 +153,13 @@ CREATE TABLE IF NOT EXISTS store_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';

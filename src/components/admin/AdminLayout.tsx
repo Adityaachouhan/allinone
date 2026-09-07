@@ -579,7 +579,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-heading font-bold text-white truncate">{storeSettings.store_name || 'All In One'}</p>
+          <p className="font-heading font-bold text-white truncate">{storeSettings.store_name || 'Grocery Mart'}</p>
           <p className="text-xs text-gray-400">Admin Panel</p>
         </div>
       </div>

@@ -123,7 +123,7 @@ export function ProductDetailPage() {
 
         {/* Details */}
         <div>
-          <p className="text-sm text-gray-500">{product.brand || 'All In One'}</p>
+          <p className="text-sm text-gray-500">{product.brand || 'Fresh'}</p>
           <h1 className="mt-1 font-heading text-2xl font-bold text-gray-900 sm:text-3xl">
             {product.name}
           </h1>

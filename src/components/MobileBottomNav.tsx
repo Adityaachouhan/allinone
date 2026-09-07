@@ -7,13 +7,13 @@ export function MobileBottomNav() {
   const navigate = useNavigate();
   const route = useRoute();
   const { itemCount } = useCart();
-  const { profile } = useAuth();
+  const { session } = useAuth();
 
   const items = [
     { icon: Home, label: 'Home', path: '/' },
     { icon: Search, label: 'Search', path: '/search' },
     { icon: ShoppingCart, label: 'Cart', path: '/cart', badge: itemCount },
-    { icon: User, label: profile ? 'Account' : 'Login', path: profile ? '/account' : '/login' },
+    { icon: User, label: session ? 'Account' : 'Login', path: session ? '/account' : '/login' },
   ];
 
   return (

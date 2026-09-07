@@ -124,7 +124,7 @@ async function runIsolationTest() {
   // ── Step 3: Insert a product into Tenant A's DB ────────────────────────────
   console.log('\n  [Step 3] Inserting test product into Tenant A DB...');
   const dbPassA = decrypt(tenantARecord.db_password_encrypted);
-  const { tenantModels: modelsA } = getOrCreateTenantConnection(domainA, {
+  const { tenantModels: modelsA } = await getOrCreateTenantConnection(domainA, {
     db_host: tenantARecord.db_host,
     db_port: tenantARecord.db_port,
     db_name: tenantARecord.db_name,
@@ -146,7 +146,7 @@ async function runIsolationTest() {
   // ── Step 4: Query Tenant B's DB for products ───────────────────────────────
   console.log('\n  [Step 4] Querying Tenant B DB for products (should return 0)...');
   const dbPassB = decrypt(tenantBRecord.db_password_encrypted);
-  const { tenantModels: modelsB } = getOrCreateTenantConnection(domainB, {
+  const { tenantModels: modelsB } = await getOrCreateTenantConnection(domainB, {
     db_host: tenantBRecord.db_host,
     db_port: tenantBRecord.db_port,
     db_name: tenantBRecord.db_name,

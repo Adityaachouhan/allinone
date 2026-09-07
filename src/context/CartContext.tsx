@@ -33,6 +33,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items]);
 
+  useEffect(() => {
+    const handleSignOut = () => {
+      setItems([]);
+    };
+    window.addEventListener('aio_signout', handleSignOut);
+    return () => window.removeEventListener('aio_signout', handleSignOut);
+  }, []);
+
   const value = useMemo<CartContextValue>(() => {
     const addItem = (product: Product, quantity = 1) => {
       setItems((prev) => {

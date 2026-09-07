@@ -205,5 +205,14 @@ CREATE TRIGGER store_settings_bump_updated_at
 -- -------------------------------------------------------
 -- Seed: default store_settings row (one per tenant DB)
 -- -------------------------------------------------------
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS store_name text NOT NULL DEFAULT '';
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tagline text NOT NULL DEFAULT 'Grocery Mart';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS logo_url text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS phone text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS address text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
 INSERT INTO store_settings (store_name) VALUES ('') ON CONFLICT DO NOTHING;

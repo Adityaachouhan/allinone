@@ -44,8 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     db.signOut();
+    try {
+      localStorage.removeItem('aio_session');
+      localStorage.removeItem('aio_token');
+      localStorage.removeItem('aio_cart');
+    } catch {
+      // ignore storage access errors
+    }
     setProfile(null);
     setSessionState(null);
+    window.dispatchEvent(new Event('aio_signout'));
   };
 
   const role = profile?.app_role ?? null;
