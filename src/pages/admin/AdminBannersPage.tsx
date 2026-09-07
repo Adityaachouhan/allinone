@@ -31,6 +31,16 @@ export function AdminBannersPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Auto-refresh when server broadcasts a data change via SSE
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'banner') load().catch(console.error);
+    };
+    window.addEventListener('admin-data-changed', handler);
+    return () => window.removeEventListener('admin-data-changed', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openAdd = () => {
     setForm({ ...emptyForm, sort_order: String(banners.length + 1) });
     setEditingId(null);

@@ -503,6 +503,13 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       es.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+
+          // ── data_changed: re-broadcast so admin pages auto-refresh ──────────
+          if (data.event === 'data_changed') {
+            window.dispatchEvent(new CustomEvent('admin-data-changed', { detail: data }));
+            return;
+          }
+
           if (data.event !== 'new_order') return;
 
           const notifId: string = data.id ?? data.orderNumber;

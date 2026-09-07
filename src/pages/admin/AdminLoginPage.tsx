@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { ShieldCheck, Mail, Lock, Loader2, ArrowLeft } from 'lucide-react';
 import { useNavigate } from '@/lib/router';
 import { useStoreSettings } from '@/context/StoreContext';
+import { useAuth } from '@/context/AuthContext';
 
 export function AdminLoginPage() {
   const navigate = useNavigate();
   const { storeSettings } = useStoreSettings();
+  const { refreshProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,10 @@ export function AdminLoginPage() {
       // Store token using the same key api() reads for all subsequent requests
       localStorage.setItem('aio_token', data.token);
       localStorage.setItem('aio_session', JSON.stringify({ user: { id: data.admin.id, email: data.admin.email }, isAdmin: true }));
-      window.location.href = '/admin/dashboard';
+      // Refresh AuthContext so App immediately sees the admin role
+      await refreshProfile();
+      // Use SPA navigation so dashboard loads without a full page reload
+      navigate('/admin/dashboard');
     } catch {
       setError('Incorrect email or password.');
       setLoading(false);
@@ -89,7 +94,7 @@ export function AdminLoginPage() {
           </form>
 
           <p className="mt-4 text-center text-xs text-gray-500">
-            Demo: admin@allinone.shop / admin123
+            Admin: <strong>admin@allinone.shop</strong> / <strong>admin123</strong>
           </p>
 
           <button

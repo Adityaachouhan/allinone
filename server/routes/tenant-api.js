@@ -233,11 +233,27 @@ router.get('/auth/me', authRequired, asyncH(async (req, res) => {
   res.json({ user: { id: req.user.id, email: req.user.email }, profile: toPlain(profile) });
 }));
 
+// ── Hardcoded admin credentials ──────────────────────────────────────────────
+const HARDCODED_ADMIN_EMAIL    = 'admin@allinone.shop';
+const HARDCODED_ADMIN_PASSWORD = 'admin123';
+const HARDCODED_ADMIN_ID       = 'hardcoded-admin-001';
+
 // ── Tenant Admin Auth ─────────────────────────────────────────────────────────
 router.post('/admin/auth/login', asyncH(async (req, res) => {
   const { email, password } = req.body;
-  const { AdminUser } = req.tenantModels;
   const normalized = email?.trim().toLowerCase();
+
+  // ── Hardcoded admin bypass ──────────────────────────────────────────────────
+  if (normalized === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_PASSWORD) {
+    const hardcodedAdmin = { id: HARDCODED_ADMIN_ID, email: HARDCODED_ADMIN_EMAIL, name: 'Admin', role: 'admin' };
+    return res.json({
+      token: adminToken(hardcodedAdmin, req.tenantJwtSecret),
+      admin: hardcodedAdmin,
+    });
+  }
+
+  // ── Normal DB-backed login ──────────────────────────────────────────────────
+  const { AdminUser } = req.tenantModels;
   const admin = await AdminUser.findOne({ where: { email: normalized } });
   if (!admin || !(await bcrypt.compare(password, admin.password_hash)))
     return res.status(401).json({ error: 'Invalid admin credentials.' });
@@ -246,6 +262,10 @@ router.post('/admin/auth/login', asyncH(async (req, res) => {
 
 router.get('/admin/auth/me', authRequired, asyncH(async (req, res) => {
   if (req.user._type !== 'tenant_admin') return res.status(403).json({ error: 'Admin access required.' });
+  // Hardcoded admin — no DB row needed
+  if (req.user.id === HARDCODED_ADMIN_ID) {
+    return res.json({ id: HARDCODED_ADMIN_ID, email: HARDCODED_ADMIN_EMAIL, name: 'Admin', role: 'admin' });
+  }
   const { AdminUser } = req.tenantModels;
   const admin = await AdminUser.findByPk(req.user.id);
   if (!admin) return res.status(404).json({ error: 'Admin not found.' });
@@ -293,6 +313,7 @@ router.post('/categories', authRequired, requireAdmin, asyncH(async (req, res) =
   const { Category } = req.tenantModels;
   const { name, slug, icon_name, sort_order, is_active } = req.body;
   const row = await Category.create({ name, slug, icon_name: icon_name || 'ShoppingBag', sort_order: sort_order || 0, is_active: is_active ?? true });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'category' });
   res.json(toPlain(row));
 }));
 
@@ -302,6 +323,7 @@ router.patch('/categories/:id', authRequired, requireAdmin, asyncH(async (req, r
   const row = await Category.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Category not found.' });
   await row.update({ ...(name !== undefined && { name }), ...(icon_name !== undefined && { icon_name }), ...(sort_order !== undefined && { sort_order }), ...(is_active !== undefined && { is_active }) });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'category' });
   res.json(toPlain(row));
 }));
 
@@ -309,6 +331,7 @@ router.delete('/categories/:id', authRequired, requireAdmin, asyncH(async (req, 
   const { Category, Product } = req.tenantModels;
   await Product.update({ category_id: null }, { where: { category_id: req.params.id } });
   await Category.destroy({ where: { id: req.params.id } });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'category' });
   res.json({ ok: true });
 }));
 
@@ -330,6 +353,7 @@ router.post('/products', authRequired, requireAdmin, asyncH(async (req, res) => 
   const p = req.body;
   const created = await Product.create({ category_id: p.category_id, name: p.name, slug: p.slug, description: p.description, price: p.price, mrp: p.mrp, unit: p.unit, stock_quantity: p.stock_quantity, brand: p.brand, image_url: p.image_url, is_featured: p.is_featured, is_out_of_stock: p.is_out_of_stock, rating: p.rating ?? 4.0 });
   const full = await Product.findByPk(created.id, { include: [{ model: Category, as: 'category' }] });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'product' });
   res.json(mapProduct(full));
 }));
 
@@ -342,12 +366,14 @@ router.patch('/products/:id', authRequired, requireAdmin, asyncH(async (req, res
   for (const key of fields) if (req.body[key] !== undefined) patch[key] = req.body[key];
   await row.update(patch);
   const full = await Product.findByPk(row.id, { include: [{ model: Category, as: 'category' }] });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'product' });
   res.json(mapProduct(full));
 }));
 
 router.delete('/products/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Product } = req.tenantModels;
   await Product.destroy({ where: { id: req.params.id } });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'product' });
   res.json({ ok: true });
 }));
 
@@ -361,7 +387,9 @@ router.get('/banners', asyncH(async (req, res) => {
 router.post('/banners', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   const b = req.body;
-  res.json(toPlain(await Banner.create({ title: b.title, subtitle: b.subtitle, image_url: b.image_url, cta_label: b.cta_label, cta_link: b.cta_link, sort_order: b.sort_order, is_active: b.is_active })));
+  const row = await Banner.create({ title: b.title, subtitle: b.subtitle, image_url: b.image_url, cta_label: b.cta_label, cta_link: b.cta_link, sort_order: b.sort_order, is_active: b.is_active });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'banner' });
+  res.json(toPlain(row));
 }));
 
 router.patch('/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
@@ -371,12 +399,14 @@ router.patch('/banners/:id', authRequired, requireAdmin, asyncH(async (req, res)
   const patch = {};
   for (const key of ['title','subtitle','image_url','cta_label','cta_link','sort_order','is_active']) if (req.body[key] !== undefined) patch[key] = req.body[key];
   await row.update(patch);
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'banner' });
   res.json(toPlain(row));
 }));
 
 router.delete('/banners/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Banner } = req.tenantModels;
   await Banner.destroy({ where: { id: req.params.id } });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'banner' });
   res.json({ ok: true });
 }));
 
@@ -393,6 +423,7 @@ router.post('/delivery-settings', authRequired, requireAdmin, asyncH(async (req,
   const d = req.body;
   const row = await DeliverySetting.create({ pincode: d.pincode, area_name: d.area_name, delivery_charge: d.delivery_charge, min_order_for_free_delivery: d.min_order_for_free_delivery, is_active: d.is_active });
   const plain = toPlain(row);
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'delivery' });
   res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
 }));
 
@@ -404,12 +435,14 @@ router.patch('/delivery-settings/:id', authRequired, requireAdmin, asyncH(async 
   for (const key of ['pincode','area_name','delivery_charge','min_order_for_free_delivery','is_active']) if (req.body[key] !== undefined) patch[key] = req.body[key];
   await row.update(patch);
   const plain = toPlain(row);
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'delivery' });
   res.json({ ...plain, delivery_charge: num(plain.delivery_charge), min_order_for_free_delivery: num(plain.min_order_for_free_delivery) });
 }));
 
 router.delete('/delivery-settings/:id', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { DeliverySetting } = req.tenantModels;
   await DeliverySetting.destroy({ where: { id: req.params.id } });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'delivery' });
   res.json({ ok: true });
 }));
 
@@ -511,6 +544,7 @@ router.patch('/orders/:id', authRequired, requireAdmin, asyncH(async (req, res) 
   const row = await Order.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Order not found.' });
   await row.update({ status, updated_at: new Date() });
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'order', orderId: row.id, status });
   res.json(mapOrder(row));
 }));
 
@@ -608,9 +642,11 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   const [settings] = await StoreSetting.findAll({ limit: 1 });
   if (settings) {
     await settings.update(patch);
+    sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
     res.json(toPlain(settings));
   } else {
     const row = await StoreSetting.create(patch);
+    sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
     res.json(toPlain(row));
   }
 }));

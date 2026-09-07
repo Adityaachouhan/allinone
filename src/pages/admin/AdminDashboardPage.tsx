@@ -75,7 +75,7 @@ export function AdminDashboardPage() {
 
   // Auto-refresh dashboard when a new-order SSE event is received
   useEffect(() => {
-    const handler = async () => {
+    const refreshOrders = async () => {
       try {
         const now = new Date();
         const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -95,8 +95,16 @@ export function AdminDashboardPage() {
         // Non-critical refresh — silently ignore errors
       }
     };
-    window.addEventListener('new-order', handler);
-    return () => window.removeEventListener('new-order', handler);
+    window.addEventListener('new-order', refreshOrders);
+    // Also refresh when order status changes (data_changed SSE)
+    const dataHandler = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'order') refreshOrders();
+    };
+    window.addEventListener('admin-data-changed', dataHandler);
+    return () => {
+      window.removeEventListener('new-order', refreshOrders);
+      window.removeEventListener('admin-data-changed', dataHandler);
+    };
   }, []);
 
   const maxSale = Math.max(...salesData.map((d) => d.total), 1);

@@ -52,13 +52,25 @@ export function AdminStoreSettingsPage() {
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(true);
 
-  useEffect(() => {
+  const loadSettings = () => {
     db.getStoreSettings()
-      .then((d) => {
-        setForm({ ...EMPTY, ...d });
-      })
+      .then((d) => { setForm({ ...EMPTY, ...d }); })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  // Auto-refresh when server broadcasts a store settings change via SSE
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'store_settings') loadSettings();
+    };
+    window.addEventListener('admin-data-changed', handler);
+    return () => window.removeEventListener('admin-data-changed', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const saveSettingsToDbAndContext = async (updatedData: StoreSettings) => {

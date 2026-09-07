@@ -30,6 +30,16 @@ export function AdminCategoriesPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Auto-refresh when server broadcasts a data change via SSE
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'category') load().catch(console.error);
+    };
+    window.addEventListener('admin-data-changed', handler);
+    return () => window.removeEventListener('admin-data-changed', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const openAdd = () => {
     setForm({ name: '', icon_name: 'ShoppingBag', sort_order: String(categories.length + 1) });
     setEditingId(null);

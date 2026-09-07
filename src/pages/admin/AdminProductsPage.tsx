@@ -48,6 +48,19 @@ export function AdminProductsPage() {
     return () => { mounted = false; };
   }, []);
 
+  // Auto-refresh when server broadcasts a data change via SSE
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const type = (e as CustomEvent).detail?.type;
+      if (type === 'product' || type === 'category') {
+        Promise.all([loadProducts(), loadCategories()]).catch(console.error);
+      }
+    };
+    window.addEventListener('admin-data-changed', handler);
+    return () => window.removeEventListener('admin-data-changed', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.brand.toLowerCase().includes(search.toLowerCase()),

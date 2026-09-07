@@ -62,6 +62,16 @@ export function AdminOrdersPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Also auto-refresh when order status is updated via SSE (data_changed event)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if ((e as CustomEvent).detail?.type === 'order') load().catch(console.error);
+    };
+    window.addEventListener('admin-data-changed', handler);
+    return () => window.removeEventListener('admin-data-changed', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = orders.filter((o) => {
     const matchStatus = statusFilter === 'all' || o.status === statusFilter;
     const q = search.toLowerCase();
