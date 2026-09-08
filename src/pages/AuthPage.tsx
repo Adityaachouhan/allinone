@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Leaf, Mail, Lock, User as UserIcon, Phone, Loader2 } from 'lucide-react';
+import { Leaf, Mail, Lock, User as UserIcon, Phone, Loader2, ArrowLeft } from 'lucide-react';
 import * as db from '@/lib/db';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useAuth } from '@/context/AuthContext';
@@ -18,6 +18,7 @@ export function AuthPage() {
       navigate(redirect);
     }
   }, [session, redirect, navigate]);
+
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,34 +59,35 @@ export function AuthPage() {
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4 py-8 animate-fade-in">
+    <div className="flex min-h-screen items-center justify-center bg-gray-900 px-4 py-8 animate-fade-in">
       <div className="w-full max-w-md">
-        <div className="card p-6 sm:p-8">
+        <div className="rounded-2xl bg-white p-6 sm:p-8 shadow-2xl">
           {/* Logo */}
           <div className="flex flex-col items-center text-center">
             {storeSettings.logo_url ? (
-              <img src={storeSettings.logo_url} alt={storeSettings.store_name || 'Logo'} className="h-12 w-12 rounded-xl object-cover border" />
+              <img src={storeSettings.logo_url} alt={storeSettings.store_name || 'Logo'} className="h-14 w-14 rounded-xl object-cover border" />
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600 text-white font-bold">
-                <Leaf size={26} />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-600 text-white font-bold">
+                <Leaf size={28} />
               </div>
             )}
-            <h1 className="mt-3 font-heading text-xl font-bold text-primary-700">
+            <h1 className="mt-3 font-heading text-2xl font-bold text-gray-900">
               {storeSettings.store_name || 'Grocery Mart'}
             </h1>
-            <p className="text-sm text-gray-500">
-              {mode === 'login' ? 'Sign in to access your orders & address' : 'Create an account to start shopping'}
+            <p className="mt-1 text-sm text-gray-500">
+              {mode === 'login' ? 'Sign in to access your account & orders' : 'Create an account to start shopping'}
             </p>
           </div>
 
           {/* Tabs */}
-          <div className="mt-6 grid grid-cols-2 rounded-lg bg-gray-100 p-1">
+          <div className="mt-6 grid grid-cols-2 rounded-xl bg-gray-100 p-1">
             {(['login', 'signup'] as const).map((m) => (
               <button
                 key={m}
+                type="button"
                 onClick={() => { setMode(m); setError(''); }}
-                className={`rounded-md py-2 text-sm font-medium transition-colors ${
-                  mode === m ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-600'
+                className={`rounded-lg py-2.5 text-sm font-semibold transition-all ${
+                  mode === m ? 'bg-white text-primary-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {m === 'login' ? 'Sign In' : 'Sign Up'}
@@ -93,7 +95,7 @@ export function AuthPage() {
             ))}
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             {mode === 'signup' && (
               <div>
                 <label className="label">Full Name</label>
@@ -159,25 +161,32 @@ export function AuthPage() {
             </div>
 
             {error && (
-              <p className="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-600">{error}</p>
+              <p className="rounded-lg bg-error-50 px-3 py-2 text-sm font-medium text-error-600">{error}</p>
             )}
 
-            <button type="submit" disabled={loading} className="btn-primary w-full py-3">
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base font-semibold shadow-md">
               {loading ? <Loader2 size={18} className="animate-spin" /> : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-500">
-            By continuing, you agree to All In One's Terms & Privacy Policy.
-          </p>
-        </div>
+          <div className="mt-6 space-y-3 border-t border-gray-100 pt-4 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex items-center justify-center gap-1.5 w-full text-sm font-medium text-gray-600 hover:text-primary-700 transition-colors"
+            >
+              <ArrowLeft size={16} /> Back to Store
+            </button>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
-          Are you an admin?{' '}
-          <button onClick={() => navigate('/admin')} className="font-medium text-primary-700 hover:text-primary-800">
-            Admin Login →
-          </button>
-        </p>
+            <button
+              type="button"
+              onClick={() => navigate('/admin')}
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Are you an admin? <span className="font-semibold text-primary-700 underline">Admin Login →</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -156,7 +156,7 @@ export function AccountPage() {
     return <div className="flex min-h-[40vh] items-center justify-center"><Spinner size={32} /></div>;
   }
 
-  if (!session) return <AuthPage />;
+  if (!session) return null;
 
   // Order detail modal
   if (selectedOrder) {

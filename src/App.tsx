@@ -42,7 +42,7 @@ export default function App() {
 
 function AppRoutes() {
   const route = useRoute();
-  const { role, loading } = useAuth();
+  const { session, role, loading } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
 
   // Load categories once for storefront layout
@@ -54,6 +54,7 @@ function AppRoutes() {
 
   const isAdminRoute = route.path.startsWith('/admin');
   const isAdminLogin = route.path === '/admin' || route.path === '/admin/';
+  const isCustomerLogin = route.path === '/login';
 
   // --- Admin routes ---
   if (isAdminRoute && !isAdminLogin) {
@@ -74,6 +75,16 @@ function AppRoutes() {
       return <PageSpinner />;
     }
     return <AdminLoginPage />;
+  }
+
+  // --- Standalone Customer Login route ---
+  if (isCustomerLogin) {
+    if (loading) return <PageSpinner />;
+    if (session) {
+      navigate('/account');
+      return <PageSpinner />;
+    }
+    return <AuthPage />;
   }
 
   // --- Customer routes ---
