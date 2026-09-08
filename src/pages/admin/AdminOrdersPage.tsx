@@ -8,6 +8,25 @@ import { useRoute } from '@/lib/router';
 
 type OrderWithProfile = Order & { profile?: Profile };
 
+function isStatusDisabled(currentStatus: string, targetStatus: string): boolean {
+  if (currentStatus === targetStatus) return false;
+  if (currentStatus === 'delivered' || currentStatus === 'cancelled') return true;
+
+  const FLOW = ['placed', 'packed', 'out_for_delivery', 'delivered'];
+  const currentIdx = FLOW.indexOf(currentStatus);
+  const targetIdx = FLOW.indexOf(targetStatus);
+
+  if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+    return true;
+  }
+
+  if (targetStatus === 'cancelled' && (currentStatus === 'out_for_delivery' || currentStatus === 'delivered')) {
+    return true;
+  }
+
+  return false;
+}
+
 export function AdminOrdersPage() {
   const route = useRoute();
   const [orders, setOrders] = useState<OrderWithProfile[]>([]);
@@ -87,14 +106,22 @@ export function AdminOrdersPage() {
     setOrderItems(await db.listOrderItems(order.id));
   };
 
+  const [statusError, setStatusError] = useState<string | null>(null);
+
   const updateStatus = async (orderId: string, status: string) => {
     setUpdating(true);
-    await db.updateOrder(orderId, { status: status as Order['status'] });
-    await load();
-    if (selectedOrder?.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, status: status as Order['status'] });
+    setStatusError(null);
+    try {
+      await db.updateOrder(orderId, { status: status as Order['status'] });
+      await load();
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: status as Order['status'] } : null));
+      }
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : 'Failed to update order status.');
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(false);
   };
 
   if (loading) return <div className="flex h-64 items-center justify-center"><Spinner size={32} /></div>;
@@ -104,7 +131,7 @@ export function AdminOrdersPage() {
     const addr = selectedOrder.address_snapshot;
     return (
       <div className="animate-fade-in">
-        <button onClick={() => setSelectedOrder(null)} className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-700">
+        <button onClick={() => { setSelectedOrder(null); setStatusError(null); }} className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-700">
           <ChevronRight size={16} className="rotate-180" /> Back to orders
         </button>
 
@@ -126,25 +153,57 @@ export function AdminOrdersPage() {
 
               {/* Status update */}
               <div className="mt-4 border-t border-gray-100 pt-4">
-                <p className="mb-2 text-sm font-semibold text-gray-900">Update Status</p>
-                <div className="flex flex-wrap gap-2">
-                  {[...ORDER_STATUS_FLOW, 'cancelled'].map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => updateStatus(selectedOrder.id, status)}
-                      disabled={updating}
-                      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                        selectedOrder.status === status
-                          ? 'bg-primary-600 text-white'
-                          : status === 'cancelled'
-                            ? 'border border-error-300 text-error-600 hover:bg-error-50'
-                            : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {orderStatusLabels(status)}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="text-sm font-semibold text-gray-900">Update Status</p>
+                  {selectedOrder.status === 'delivered' ? (
+                    <span className="text-xs font-semibold text-success-700 bg-success-50 px-2.5 py-0.5 rounded-full">
+                      ✓ Final Delivered State (Locked)
+                    </span>
+                  ) : selectedOrder.status === 'cancelled' ? (
+                    <span className="text-xs font-semibold text-error-700 bg-error-50 px-2.5 py-0.5 rounded-full">
+                      ✕ Final Cancelled State (Locked)
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500 font-medium">Progression is non-reversible</span>
+                  )}
                 </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {[...ORDER_STATUS_FLOW, 'cancelled'].map((status) => {
+                    const isCurrent = selectedOrder.status === status;
+                    const isDisabled = updating || isStatusDisabled(selectedOrder.status, status);
+
+                    return (
+                      <button
+                        key={status}
+                        onClick={() => !isCurrent && !isDisabled && updateStatus(selectedOrder.id, status)}
+                        disabled={isDisabled}
+                        title={
+                          isDisabled && !isCurrent
+                            ? 'Order status progression is non-reversible.'
+                            : undefined
+                        }
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                          isCurrent
+                            ? 'bg-primary-600 text-white shadow-sm font-semibold cursor-default'
+                            : isDisabled
+                              ? 'border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                              : status === 'cancelled'
+                                ? 'border border-error-300 text-error-600 hover:bg-error-50 cursor-pointer'
+                                : 'border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-primary-300 cursor-pointer'
+                        }`}
+                      >
+                        {orderStatusLabels(status)}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {statusError && (
+                  <p className="mt-2 rounded-lg bg-error-50 p-2 text-xs font-medium text-error-600">
+                    {statusError}
+                  </p>
+                )}
               </div>
             </div>
 

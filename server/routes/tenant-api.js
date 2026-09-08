@@ -579,6 +579,28 @@ router.patch('/orders/:id', authRequired, requireAdmin, asyncH(async (req, res) 
   const { status } = req.body;
   const row = await Order.findByPk(req.params.id);
   if (!row) return res.status(404).json({ error: 'Order not found.' });
+
+  const currentStatus = row.status;
+  const FLOW = ['placed', 'packed', 'out_for_delivery', 'delivered'];
+
+  if (currentStatus === 'delivered') {
+    return res.status(400).json({ error: 'Order is already delivered. Delivered orders cannot have their status changed.' });
+  }
+  if (currentStatus === 'cancelled') {
+    return res.status(400).json({ error: 'Order is already cancelled. Cancelled orders cannot have their status changed.' });
+  }
+
+  const currentIdx = FLOW.indexOf(currentStatus);
+  const targetIdx = FLOW.indexOf(status);
+
+  if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+    return res.status(400).json({ error: `Cannot revert order status from "${currentStatus}" back to "${status}". Order status updates are non-reversible.` });
+  }
+
+  if (status === 'cancelled' && (currentStatus === 'out_for_delivery' || currentStatus === 'delivered')) {
+    return res.status(400).json({ error: `Cannot cancel order once it is ${currentStatus.replace(/_/g, ' ')}.` });
+  }
+
   await row.update({ status, updated_at: new Date() });
   sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'order', orderId: row.id, status });
   res.json(mapOrder(row));
