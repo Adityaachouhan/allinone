@@ -268,11 +268,12 @@ export function NewOrderNotificationStack({
           position: 'fixed',
           top: '16px',
           right: '16px',
-          zIndex: 9999,
+          zIndex: 99999,
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
           pointerEvents: 'none',
+          maxWidth: 'calc(100vw - 32px)',
         }}
       >
         {notifications.map((n) => (

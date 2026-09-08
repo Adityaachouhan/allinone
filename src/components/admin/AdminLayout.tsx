@@ -53,6 +53,9 @@ type NotificationHistoryItem = OrderNotification & { read: boolean };
 function playNewOrderChime() {
   try {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const playNote = (freq: number, startTime: number, duration: number, gain: number) => {
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
@@ -448,7 +451,7 @@ function NotificationBellButton({
 export function AdminLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const route = useRoute();
-  const { profile, signOut } = useAuth();
+  const { profile, role, session, signOut } = useAuth();
   const { storeSettings } = useStoreSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -479,9 +482,12 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     await signOut();
   };
 
+  const isAdminUser = role === 'admin' || session?.isAdmin || profile?.app_role === 'admin' || (profile as unknown as { role?: string })?.role === 'admin';
+  const userId = session?.user?.id || profile?.id || 'admin';
+
   // ── SSE connection ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!profile || profile.app_role !== 'admin') return;
+    if (!isAdminUser) return;
 
     const token = getToken();
     if (!token) return;
@@ -564,7 +570,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
       eventSourceRef.current?.close();
       eventSourceRef.current = null;
     };
-  }, [profile]);
+  }, [isAdminUser, userId]);
 
   // ── Sidebar JSX ──────────────────────────────────────────────────────────
 
