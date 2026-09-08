@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Smartphone } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
-import { useNavigate } from '@/lib/router';
+import { useNavigate, useRoute } from '@/lib/router';
 import * as db from '@/lib/db';
 import type { Address, DeliverySetting } from '@/types';
 import { formatCurrency, generateOrderNumber } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { Spinner } from '@/components/Feedback';
 
 export function CheckoutPage() {
   const navigate = useNavigate();
+  const route = useRoute();
   const { items, subtotal, clear } = useCart();
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -49,21 +50,42 @@ export function CheckoutPage() {
         if (!mounted) return;
         setAddresses(addrList);
         setDeliverySettings(delSettings);
-        const defaultAddr = addrList.find((a) => a.is_default) || addrList[0];
-        if (defaultAddr) setSelectedAddressId(defaultAddr.id);
-        else if (addrList.length === 0) setShowAddressForm(true);
+
+        const activePincode = (route.query['pincode'] || localStorage.getItem('aio_pincode') || '').trim();
+
+        let matchingAddr = null;
+        if (activePincode && addrList.length > 0) {
+          matchingAddr = addrList.find((a) => a.pincode.trim() === activePincode);
+        }
+
+        const defaultAddr = matchingAddr || addrList.find((a) => a.is_default) || addrList[0];
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr.id);
+        } else {
+          if (addrList.length === 0) setShowAddressForm(true);
+          if (activePincode) {
+            setNewAddr((prev) => ({ ...prev, pincode: activePincode }));
+          }
+        }
       } finally {
         if (mounted) setLoadingData(false);
       }
     })();
     return () => { mounted = false; };
-  }, [session, navigate]);
+  }, [session, navigate, route.query]);
 
   // ── Calculate pincode-specific delivery charge ──────────────────────────────
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
   const currentPincode = (showAddressForm || !selectedAddressId)
     ? newAddr.pincode.trim()
     : selectedAddress?.pincode.trim() || '';
+
+  // Keep aio_pincode in localStorage synced
+  useEffect(() => {
+    if (currentPincode && /^\d{6}$/.test(currentPincode)) {
+      localStorage.setItem('aio_pincode', currentPincode);
+    }
+  }, [currentPincode]);
 
   const matchedDeliverySetting = deliverySettings.find(
     (s) => s.is_active && s.pincode.trim() === currentPincode

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingCart, ArrowRight, MapPin, CheckCircle2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from '@/lib/router';
 import { EmptyState } from '@/components/Feedback';
 import { formatCurrency } from '@/lib/utils';
@@ -10,13 +11,47 @@ import type { DeliverySetting } from '@/types';
 export function CartPage() {
   const navigate = useNavigate();
   const { items, subtotal, updateQuantity, removeItem, itemCount } = useCart();
+  const { session } = useAuth();
   const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
 
+  // Pincode state (persisted in localStorage)
+  const [pincode, setPincode] = useState(() => localStorage.getItem('aio_pincode') || '');
+  const [appliedPincode, setAppliedPincode] = useState(() => localStorage.getItem('aio_pincode') || '');
+  const [pincodeError, setPincodeError] = useState('');
+
+  // Load active delivery settings
   useEffect(() => {
     db.listDeliverySettings({ activeOnly: true })
       .then(setDeliverySettings)
       .catch(() => setDeliverySettings([]));
   }, []);
+
+  // Auto-fill pincode from default saved address if user is logged in
+  useEffect(() => {
+    if (session && !localStorage.getItem('aio_pincode')) {
+      db.listAddresses(session.user.id)
+        .then((addrs) => {
+          const def = addrs.find((a) => a.is_default) || addrs[0];
+          if (def?.pincode) {
+            setPincode(def.pincode);
+            setAppliedPincode(def.pincode);
+            localStorage.setItem('aio_pincode', def.pincode);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [session]);
+
+  const handleApplyPincode = (codeToApply?: string) => {
+    const code = (codeToApply || pincode).trim();
+    setPincodeError('');
+    if (!/^\d{6}$/.test(code)) {
+      setPincodeError('Please enter a valid 6-digit pincode.');
+      return;
+    }
+    setAppliedPincode(code);
+    localStorage.setItem('aio_pincode', code);
+  };
 
   if (items.length === 0) {
     return (
@@ -32,15 +67,34 @@ export function CartPage() {
     );
   }
 
-  const freeThreshold = deliverySettings.length > 0
-    ? (Math.min(...deliverySettings.map((s) => s.min_order_for_free_delivery).filter((m) => m > 0)) || 499)
-    : 499;
+  // ── Read charges according to applied pincode ──────────────────────────────
+  const matchedSetting = deliverySettings.find(
+    (s) => s.is_active && s.pincode.trim() === appliedPincode.trim()
+  );
 
-  const baseDeliveryCharge = deliverySettings.length > 0
-    ? (deliverySettings[0].delivery_charge ?? 30)
-    : 30;
+  let deliveryCharge = 0;
+  let freeThreshold = 499;
+  let areaName = '';
+  let isMatched = false;
 
-  const deliveryCharge = subtotal >= freeThreshold ? 0 : baseDeliveryCharge;
+  if (matchedSetting) {
+    isMatched = true;
+    areaName = matchedSetting.area_name;
+    freeThreshold = matchedSetting.min_order_for_free_delivery;
+    if (freeThreshold > 0 && subtotal >= freeThreshold) {
+      deliveryCharge = 0;
+    } else {
+      deliveryCharge = matchedSetting.delivery_charge;
+    }
+  } else {
+    // Default fallback when pincode isn't specifically in delivery settings
+    const activeThresholds = deliverySettings.map((s) => s.min_order_for_free_delivery).filter((m) => m > 0);
+    freeThreshold = activeThresholds.length > 0 ? Math.min(...activeThresholds) : 499;
+    const activeCharges = deliverySettings.map((s) => s.delivery_charge);
+    const baseCharge = activeCharges.length > 0 ? activeCharges[0] : 30;
+    deliveryCharge = subtotal >= freeThreshold ? 0 : baseCharge;
+  }
+
   const total = subtotal + deliveryCharge;
 
   return (
@@ -132,8 +186,73 @@ export function CartPage() {
           </button>
         </div>
 
-        {/* Summary */}
-        <div className="lg:col-span-1">
+        {/* Summary sidebar */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Pincode Checker Card */}
+          <div className="card p-4 bg-gray-50 border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <MapPin size={18} className="text-primary-600 shrink-0" />
+              <h3 className="text-sm font-semibold text-gray-900">Delivery Pincode</h3>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={pincode}
+                onChange={(e) => setPincode(e.target.value)}
+                placeholder="Enter 6-digit Pincode"
+                maxLength={6}
+                className="input bg-white py-1.5 text-sm flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyPincode()}
+                className="btn-primary py-1.5 px-3 text-xs shrink-0 font-semibold"
+              >
+                Apply
+              </button>
+            </div>
+
+            {pincodeError && (
+              <p className="mt-1.5 text-xs text-error-600">{pincodeError}</p>
+            )}
+
+            {appliedPincode && (
+              <div className="mt-3 pt-2.5 border-t border-gray-200 text-xs">
+                {isMatched ? (
+                  <div className="space-y-1">
+                    <p className="font-semibold text-primary-700 flex items-center gap-1">
+                      <CheckCircle2 size={14} /> Pincode {appliedPincode} {areaName ? `(${areaName})` : ''}
+                    </p>
+                    <p className="text-gray-700">
+                      Delivery Charge: <strong className={deliveryCharge === 0 ? 'text-success-600 font-bold' : 'text-gray-900 font-bold'}>
+                        {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
+                      </strong>
+                    </p>
+                    {freeThreshold > 0 && deliveryCharge > 0 && (
+                      <p className="text-primary-600 font-medium">
+                        Free delivery on orders above {formatCurrency(freeThreshold)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-gray-700">
+                      Pincode <strong>{appliedPincode}</strong> Delivery: <strong className={deliveryCharge === 0 ? 'text-success-600 font-bold' : 'text-gray-900 font-bold'}>
+                        {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
+                      </strong>
+                    </p>
+                    {deliveryCharge > 0 && (
+                      <p className="text-gray-500 text-[11px]">
+                        Free delivery on orders above {formatCurrency(freeThreshold)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Price details card */}
           <div className="card sticky top-32 p-5">
             <h2 className="text-base font-semibold text-gray-900">Price Details</h2>
             <dl className="mt-4 space-y-2.5 text-sm">
@@ -141,15 +260,22 @@ export function CartPage() {
                 <dt className="text-gray-600">Subtotal ({itemCount} items)</dt>
                 <dd className="font-medium text-gray-900">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-600">Delivery charge</dt>
-                <dd className={`font-medium ${deliveryCharge === 0 ? 'text-success-600' : 'text-gray-900'}`}>
+              <div className="flex justify-between items-start">
+                <dt className="text-gray-600 flex flex-col">
+                  <span>Delivery {appliedPincode ? `(${appliedPincode})` : ''}</span>
+                  {deliveryCharge > 0 && freeThreshold > 0 && (
+                    <span className="text-[11px] text-gray-500 font-normal">
+                      Free delivery above {formatCurrency(freeThreshold)}
+                    </span>
+                  )}
+                </dt>
+                <dd className={`font-semibold ${deliveryCharge === 0 ? 'text-success-600' : 'text-gray-900'}`}>
                   {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                 </dd>
               </div>
-              {deliveryCharge > 0 && (
+              {deliveryCharge > 0 && subtotal < freeThreshold && (
                 <p className="rounded bg-primary-50 px-3 py-2 text-xs text-primary-700">
-                  Add {formatCurrency(freeThreshold - subtotal)} more for FREE delivery (calculated by pincode at checkout)
+                  Add {formatCurrency(freeThreshold - subtotal)} more for FREE delivery
                 </p>
               )}
               <div className="border-t border-gray-100 pt-3 flex justify-between text-base">
@@ -159,7 +285,7 @@ export function CartPage() {
             </dl>
 
             <button
-              onClick={() => navigate('/checkout')}
+              onClick={() => navigate(appliedPincode ? `/checkout?pincode=${appliedPincode}` : '/checkout')}
               className="btn-primary mt-5 w-full py-3"
             >
               Proceed to Checkout <ArrowRight size={18} />
