@@ -91,22 +91,16 @@ export function CheckoutPage() {
     (s) => s.is_active && s.pincode.trim() === currentPincode
   );
 
-  let deliveryCharge = 0;
-  let freeDeliveryThreshold = 499;
+  let deliveryCharge = 30;
   let areaName = '';
 
   if (matchedDeliverySetting) {
     areaName = matchedDeliverySetting.area_name;
-    freeDeliveryThreshold = matchedDeliverySetting.min_order_for_free_delivery;
-    if (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) {
-      deliveryCharge = 0;
-    } else {
-      deliveryCharge = matchedDeliverySetting.delivery_charge;
-    }
+    deliveryCharge = matchedDeliverySetting.delivery_charge;
   } else {
-    // Default fallback rate when pincode isn't specifically configured in admin
-    freeDeliveryThreshold = 499;
-    deliveryCharge = subtotal >= freeDeliveryThreshold ? 0 : 30;
+    // Default fallback charge when pincode isn't specifically configured in admin
+    const activeCharges = deliverySettings.map((s) => s.delivery_charge);
+    deliveryCharge = activeCharges.length > 0 ? activeCharges[0] : 30;
   }
 
   const total = subtotal + deliveryCharge;
@@ -483,16 +477,11 @@ export function CheckoutPage() {
                 <dt className="text-gray-600">Subtotal</dt>
                 <dd className="font-medium">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between items-start">
-                <dt className="text-gray-600 flex flex-col">
-                  <span>Delivery {currentPincode ? `(${currentPincode}${areaName ? ` · ${areaName}` : ''})` : ''}</span>
-                  {matchedDeliverySetting && deliveryCharge > 0 && freeDeliveryThreshold > 0 && (
-                    <span className="text-[11px] text-gray-500 font-normal">
-                      Free delivery on orders above {formatCurrency(freeDeliveryThreshold)}
-                    </span>
-                  )}
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-600">
+                  Delivery Fee {currentPincode ? `(${currentPincode}${areaName ? ` · ${areaName}` : ''})` : ''}
                 </dt>
-                <dd className={deliveryCharge === 0 ? 'text-success-600 font-semibold' : 'font-medium'}>
+                <dd className="font-semibold text-gray-900">
                   {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                 </dd>
               </div>

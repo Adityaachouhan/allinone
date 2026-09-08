@@ -72,27 +72,18 @@ export function CartPage() {
     (s) => s.is_active && s.pincode.trim() === appliedPincode.trim()
   );
 
-  let deliveryCharge = 0;
-  let freeThreshold = 499;
+  let deliveryCharge = 30;
   let areaName = '';
   let isMatched = false;
 
   if (matchedSetting) {
     isMatched = true;
     areaName = matchedSetting.area_name;
-    freeThreshold = matchedSetting.min_order_for_free_delivery;
-    if (freeThreshold > 0 && subtotal >= freeThreshold) {
-      deliveryCharge = 0;
-    } else {
-      deliveryCharge = matchedSetting.delivery_charge;
-    }
+    deliveryCharge = matchedSetting.delivery_charge;
   } else {
-    // Default fallback when pincode isn't specifically in delivery settings
-    const activeThresholds = deliverySettings.map((s) => s.min_order_for_free_delivery).filter((m) => m > 0);
-    freeThreshold = activeThresholds.length > 0 ? Math.min(...activeThresholds) : 499;
+    // Default fallback charge when pincode isn't specifically in delivery settings
     const activeCharges = deliverySettings.map((s) => s.delivery_charge);
-    const baseCharge = activeCharges.length > 0 ? activeCharges[0] : 30;
-    deliveryCharge = subtotal >= freeThreshold ? 0 : baseCharge;
+    deliveryCharge = activeCharges.length > 0 ? activeCharges[0] : 30;
   }
 
   const total = subtotal + deliveryCharge;
@@ -224,28 +215,18 @@ export function CartPage() {
                       <CheckCircle2 size={14} /> Pincode {appliedPincode} {areaName ? `(${areaName})` : ''}
                     </p>
                     <p className="text-gray-700">
-                      Delivery Charge: <strong className={deliveryCharge === 0 ? 'text-success-600 font-bold' : 'text-gray-900 font-bold'}>
+                      Delivery Fee: <strong className="text-gray-900 font-bold">
                         {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                       </strong>
                     </p>
-                    {freeThreshold > 0 && deliveryCharge > 0 && (
-                      <p className="text-primary-600 font-medium">
-                        Free delivery on orders above {formatCurrency(freeThreshold)}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <div className="space-y-1">
                     <p className="text-gray-700">
-                      Pincode <strong>{appliedPincode}</strong> Delivery: <strong className={deliveryCharge === 0 ? 'text-success-600 font-bold' : 'text-gray-900 font-bold'}>
+                      Pincode <strong>{appliedPincode}</strong> Delivery: <strong className="text-gray-900 font-bold">
                         {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                       </strong>
                     </p>
-                    {deliveryCharge > 0 && (
-                      <p className="text-gray-500 text-[11px]">
-                        Free delivery on orders above {formatCurrency(freeThreshold)}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -260,24 +241,14 @@ export function CartPage() {
                 <dt className="text-gray-600">Subtotal ({itemCount} items)</dt>
                 <dd className="font-medium text-gray-900">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between items-start">
-                <dt className="text-gray-600 flex flex-col">
-                  <span>Delivery {appliedPincode ? `(${appliedPincode})` : ''}</span>
-                  {deliveryCharge > 0 && freeThreshold > 0 && (
-                    <span className="text-[11px] text-gray-500 font-normal">
-                      Free delivery above {formatCurrency(freeThreshold)}
-                    </span>
-                  )}
+              <div className="flex justify-between items-center">
+                <dt className="text-gray-600">
+                  Delivery Fee {appliedPincode ? `(${appliedPincode})` : ''}
                 </dt>
-                <dd className={`font-semibold ${deliveryCharge === 0 ? 'text-success-600' : 'text-gray-900'}`}>
+                <dd className="font-semibold text-gray-900">
                   {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                 </dd>
               </div>
-              {deliveryCharge > 0 && subtotal < freeThreshold && (
-                <p className="rounded bg-primary-50 px-3 py-2 text-xs text-primary-700">
-                  Add {formatCurrency(freeThreshold - subtotal)} more for FREE delivery
-                </p>
-              )}
               <div className="border-t border-gray-100 pt-3 flex justify-between text-base">
                 <dt className="font-semibold text-gray-900">Total</dt>
                 <dd className="font-bold text-gray-900">{formatCurrency(total)}</dd>
