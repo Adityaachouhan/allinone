@@ -262,44 +262,45 @@ router.get('/auth/me', authRequired, asyncH(async (req, res) => {
   res.json({ user: { id: req.user.id, email: req.user.email }, profile: toPlain(profile) });
 }));
 
-// ── Hardcoded admin credentials ──────────────────────────────────────────────
-const HARDCODED_ADMIN_EMAIL    = 'admin@allinone.shop';
-const HARDCODED_ADMIN_PASSWORD = 'admin123';
-const HARDCODED_ADMIN_ID       = 'hardcoded-admin-001';
-
 // ── Tenant Admin Auth ─────────────────────────────────────────────────────────
 router.post('/admin/auth/login', asyncH(async (req, res) => {
   const { email, password } = req.body;
   const normalized = email?.trim().toLowerCase();
 
-  // ── Hardcoded admin bypass ──────────────────────────────────────────────────
-  if (normalized === HARDCODED_ADMIN_EMAIL && password === HARDCODED_ADMIN_PASSWORD) {
-    const hardcodedAdmin = { id: HARDCODED_ADMIN_ID, email: HARDCODED_ADMIN_EMAIL, name: 'Admin', role: 'admin' };
-    return res.json({
-      token: adminToken(hardcodedAdmin, req.tenantJwtSecret),
-      admin: hardcodedAdmin,
-    });
-  }
-
-  // ── Normal DB-backed login ──────────────────────────────────────────────────
+  // ── DB-backed login ─────────────────────────────────────────────────────────
   const { AdminUser } = req.tenantModels;
   const admin = await AdminUser.findOne({ where: { email: normalized } });
   if (!admin || !(await bcrypt.compare(password, admin.password_hash)))
-    return res.status(401).json({ error: 'Invalid admin credentials.' });
+    return res.status(401).json({ error: 'Incorrect email or password.' });
   res.json({ token: adminToken(admin, req.tenantJwtSecret), admin: { id: admin.id, email: admin.email, name: admin.name, role: admin.role } });
 }));
 
 router.get('/admin/auth/me', authRequired, asyncH(async (req, res) => {
   if (req.user._type !== 'tenant_admin') return res.status(403).json({ error: 'Admin access required.' });
-  // Hardcoded admin — no DB row needed
-  if (req.user.id === HARDCODED_ADMIN_ID) {
-    return res.json({ id: HARDCODED_ADMIN_ID, email: HARDCODED_ADMIN_EMAIL, name: 'Admin', role: 'admin' });
-  }
   const { AdminUser } = req.tenantModels;
   const admin = await AdminUser.findByPk(req.user.id);
   if (!admin) return res.status(404).json({ error: 'Admin not found.' });
   res.json({ id: admin.id, email: admin.email, name: admin.name, role: admin.role });
 }));
+
+// ── Change Admin Password ─────────────────────────────────────────────────────
+router.post('/admin/auth/change-password', authRequired, asyncH(async (req, res) => {
+  if (req.user._type !== 'tenant_admin') return res.status(403).json({ error: 'Admin access required.' });
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both currentPassword and newPassword are required.' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+
+  const { AdminUser } = req.tenantModels;
+  const admin = await AdminUser.findByPk(req.user.id);
+  if (!admin) return res.status(404).json({ error: 'Admin not found.' });
+  if (!(await bcrypt.compare(currentPassword, admin.password_hash)))
+    return res.status(401).json({ error: 'Current password is incorrect.' });
+
+  const newHash = await bcrypt.hash(newPassword, 12);
+  await admin.update({ password_hash: newHash });
+  res.json({ ok: true, message: 'Password updated successfully.' });
+}));
+
 
 router.get('/admin/notifications/stream', (req, res) => {
   // NOTE: The browser's EventSource API cannot send custom headers (e.g. Authorization: Bearer).

@@ -3,7 +3,8 @@ import * as db from '@/lib/db';
 import type { StoreSettings } from '@/types';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { useStoreSettings } from '@/context/StoreContext';
-import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText, Lock } from 'lucide-react';
 
 const EMPTY: StoreSettings = {
   store_name: '', tagline: '', logo_url: '', phone: '', email: '',
@@ -51,6 +52,12 @@ export function AdminStoreSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(true);
+
+  // Password change state
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [pwError, setPwError] = useState('');
 
   const loadSettings = () => {
     db.getStoreSettings()
@@ -100,6 +107,33 @@ export function AdminStoreSettingsPage() {
   const set = (key: keyof StoreSettings) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwError('New passwords do not match.');
+      return;
+    }
+    if (pwForm.newPassword.length < 6) {
+      setPwError('New password must be at least 6 characters.');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await api('/admin/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }),
+      });
+      setPwSuccess('Password changed successfully! Use your new password next time you log in.');
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: unknown) {
+      setPwError(err instanceof Error ? err.message : 'Failed to change password.');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   // Quick Preset Actions
   const handleLoadDefaults = () => {
@@ -338,6 +372,57 @@ export function AdminStoreSettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Change Password */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="font-semibold text-gray-800 flex items-center gap-2 mb-4">
+          <Lock size={18} className="text-green-600" /> Change Admin Password
+        </h2>
+        <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+            <input
+              type="password"
+              value={pwForm.currentPassword}
+              onChange={(e) => setPwForm((f) => ({ ...f, currentPassword: e.target.value }))}
+              placeholder="Enter current password"
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <input
+              type="password"
+              value={pwForm.newPassword}
+              onChange={(e) => setPwForm((f) => ({ ...f, newPassword: e.target.value }))}
+              placeholder="At least 6 characters"
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input
+              type="password"
+              value={pwForm.confirmPassword}
+              onChange={(e) => setPwForm((f) => ({ ...f, confirmPassword: e.target.value }))}
+              placeholder="Repeat new password"
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+          {pwError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{pwError}</p>}
+          {pwSuccess && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{pwSuccess}</p>}
+          <button
+            type="submit"
+            disabled={pwSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+          >
+            <Lock size={14} /> {pwSaving ? 'Updating...' : 'Update Password'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -93,10 +93,6 @@ export function AdminLoginPage() {
             </button>
           </form>
 
-          <p className="mt-4 text-center text-xs text-gray-500">
-            Admin: <strong>admin@allinone.shop</strong> / <strong>admin123</strong>
-          </p>
-
           <button
             onClick={() => navigate('/')}
             className="mt-5 flex w-full items-center justify-center gap-1 text-sm text-gray-500 hover:text-gray-700"
