@@ -1,12 +1,22 @@
+import { useEffect, useState } from 'react';
 import { Trash2, Minus, Plus, ShoppingCart, ArrowRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useNavigate } from '@/lib/router';
 import { EmptyState } from '@/components/Feedback';
 import { formatCurrency } from '@/lib/utils';
+import * as db from '@/lib/db';
+import type { DeliverySetting } from '@/types';
 
 export function CartPage() {
   const navigate = useNavigate();
   const { items, subtotal, updateQuantity, removeItem, itemCount } = useCart();
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
+
+  useEffect(() => {
+    db.listDeliverySettings({ activeOnly: true })
+      .then(setDeliverySettings)
+      .catch(() => setDeliverySettings([]));
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -22,7 +32,15 @@ export function CartPage() {
     );
   }
 
-  const deliveryCharge = subtotal >= 499 ? 0 : 30;
+  const freeThreshold = deliverySettings.length > 0
+    ? (Math.min(...deliverySettings.map((s) => s.min_order_for_free_delivery).filter((m) => m > 0)) || 499)
+    : 499;
+
+  const baseDeliveryCharge = deliverySettings.length > 0
+    ? (deliverySettings[0].delivery_charge ?? 30)
+    : 30;
+
+  const deliveryCharge = subtotal >= freeThreshold ? 0 : baseDeliveryCharge;
   const total = subtotal + deliveryCharge;
 
   return (
@@ -131,7 +149,7 @@ export function CartPage() {
               </div>
               {deliveryCharge > 0 && (
                 <p className="rounded bg-primary-50 px-3 py-2 text-xs text-primary-700">
-                  Add {formatCurrency(499 - subtotal)} more for FREE delivery
+                  Add {formatCurrency(freeThreshold - subtotal)} more for FREE delivery (calculated by pincode at checkout)
                 </p>
               )}
               <div className="border-t border-gray-100 pt-3 flex justify-between text-base">

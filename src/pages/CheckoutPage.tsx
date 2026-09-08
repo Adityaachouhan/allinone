@@ -4,7 +4,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from '@/lib/router';
 import * as db from '@/lib/db';
-import type { Address } from '@/types';
+import type { Address, DeliverySetting } from '@/types';
 import { formatCurrency, generateOrderNumber } from '@/lib/utils';
 import { Spinner } from '@/components/Feedback';
 
@@ -13,6 +13,7 @@ export function CheckoutPage() {
   const { items, subtotal, clear } = useCart();
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
@@ -41,9 +42,13 @@ export function CheckoutPage() {
     let mounted = true;
     (async () => {
       try {
-        const addrList = await db.listAddresses(session.user.id);
+        const [addrList, delSettings] = await Promise.all([
+          db.listAddresses(session.user.id),
+          db.listDeliverySettings({ activeOnly: true }),
+        ]);
         if (!mounted) return;
         setAddresses(addrList);
+        setDeliverySettings(delSettings);
         const defaultAddr = addrList.find((a) => a.is_default) || addrList[0];
         if (defaultAddr) setSelectedAddressId(defaultAddr.id);
         else if (addrList.length === 0) setShowAddressForm(true);
@@ -54,7 +59,34 @@ export function CheckoutPage() {
     return () => { mounted = false; };
   }, [session, navigate]);
 
-  const deliveryCharge = subtotal >= 499 ? 0 : 30;
+  // ── Calculate pincode-specific delivery charge ──────────────────────────────
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+  const currentPincode = (showAddressForm || !selectedAddressId)
+    ? newAddr.pincode.trim()
+    : selectedAddress?.pincode.trim() || '';
+
+  const matchedDeliverySetting = deliverySettings.find(
+    (s) => s.is_active && s.pincode.trim() === currentPincode
+  );
+
+  let deliveryCharge = 0;
+  let freeDeliveryThreshold = 499;
+  let areaName = '';
+
+  if (matchedDeliverySetting) {
+    areaName = matchedDeliverySetting.area_name;
+    freeDeliveryThreshold = matchedDeliverySetting.min_order_for_free_delivery;
+    if (freeDeliveryThreshold > 0 && subtotal >= freeDeliveryThreshold) {
+      deliveryCharge = 0;
+    } else {
+      deliveryCharge = matchedDeliverySetting.delivery_charge;
+    }
+  } else {
+    // Default fallback rate when pincode isn't specifically configured in admin
+    freeDeliveryThreshold = 499;
+    deliveryCharge = subtotal >= freeDeliveryThreshold ? 0 : 30;
+  }
+
   const total = subtotal + deliveryCharge;
 
   const isNewAddressValid =
@@ -429,9 +461,16 @@ export function CheckoutPage() {
                 <dt className="text-gray-600">Subtotal</dt>
                 <dd className="font-medium">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-600">Delivery</dt>
-                <dd className={deliveryCharge === 0 ? 'text-success-600 font-medium' : 'font-medium'}>
+              <div className="flex justify-between items-start">
+                <dt className="text-gray-600 flex flex-col">
+                  <span>Delivery {currentPincode ? `(${currentPincode}${areaName ? ` · ${areaName}` : ''})` : ''}</span>
+                  {matchedDeliverySetting && deliveryCharge > 0 && freeDeliveryThreshold > 0 && (
+                    <span className="text-[11px] text-gray-500 font-normal">
+                      Free delivery on orders above {formatCurrency(freeDeliveryThreshold)}
+                    </span>
+                  )}
+                </dt>
+                <dd className={deliveryCharge === 0 ? 'text-success-600 font-semibold' : 'font-medium'}>
                   {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                 </dd>
               </div>
