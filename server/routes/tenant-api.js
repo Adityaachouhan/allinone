@@ -677,17 +677,6 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   // 1. Ensure all columns exist in the DB (adds tagline etc. if missing)
   await ensureStoreSettingsSchema(req);
 
-<<<<<<< HEAD
-  const [settings] = await StoreSetting.findAll({ limit: 1 });
-  if (settings) {
-    await settings.update(patch);
-    sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
-    res.json(toPlain(settings));
-  } else {
-    const row = await StoreSetting.create(patch);
-    sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
-    res.json(toPlain(row));
-=======
   const ALLOWED = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
   const patch = {};
   for (const key of ALLOWED) if (req.body[key] !== undefined) patch[key] = req.body[key];
@@ -715,8 +704,9 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
       `INSERT INTO store_settings (${cols}) VALUES (${placeholders})`,
       { bind: Object.values(patch) }
     );
->>>>>>> c9796ffa7a763a43536f0295b2546c1f5cf43e59
   }
+
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
 
   // 4. Return updated row
   const updatedData = await getLatestStoreSettings(req.tenantDb);
