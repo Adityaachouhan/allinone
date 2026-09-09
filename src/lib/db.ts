@@ -190,6 +190,13 @@ export async function insertAddress(data: Omit<Address, 'id' | 'created_at'>): P
   return api<Address>('/addresses', { method: 'POST', body: JSON.stringify(data) });
 }
 
+export async function updateAddress(
+  id: string,
+  patch: Partial<Omit<Address, 'id' | 'created_at'>>,
+): Promise<Address> {
+  return api<Address>(`/addresses/${id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+}
+
 export async function deleteAddress(id: string) {
   await api(`/addresses/${id}`, { method: 'DELETE' });
 }

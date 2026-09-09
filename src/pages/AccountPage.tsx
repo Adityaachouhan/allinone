@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Package, MapPin, User as UserIcon, LogOut, ChevronRight, Plus, Trash2, Check,
-  Clock, Truck, PackageCheck, Home, X, Loader2, AlertTriangle, XCircle,
+  Clock, Truck, PackageCheck, Home, X, Loader2, AlertTriangle, XCircle, Pencil,
 } from 'lucide-react';
 import * as db from '@/lib/db';
 import { useAuth } from '@/context/AuthContext';
@@ -37,6 +37,7 @@ export function AccountPage() {
 
   // Address form
   const [showAddrForm, setShowAddrForm] = useState(false);
+  const [editingAddrId, setEditingAddrId] = useState<string | null>(null);
   const [addrForm, setAddrForm] = useState({
     label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '',
   });
@@ -127,15 +128,42 @@ export function AccountPage() {
       setAddrError('Pincode must be 6 digits.');
       return;
     }
-    const data = await db.insertAddress({
-      ...addrForm,
-      user_id: session.user.id,
-      line2: addrForm.line2 || null,
-      is_default: addresses.length === 0,
+    try {
+      if (editingAddrId) {
+        const updated = await db.updateAddress(editingAddrId, {
+          ...addrForm,
+          line2: addrForm.line2 || null,
+        });
+        setAddresses((prev) => prev.map((a) => (a.id === editingAddrId ? updated : a)));
+      } else {
+        const data = await db.insertAddress({
+          ...addrForm,
+          user_id: session.user.id,
+          line2: addrForm.line2 || null,
+          is_default: addresses.length === 0,
+        });
+        setAddresses((prev) => [...prev, data]);
+      }
+      setShowAddrForm(false);
+      setEditingAddrId(null);
+      setAddrForm({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+    } catch (err) {
+      setAddrError(err instanceof Error ? err.message : 'Failed to save address.');
+    }
+  };
+
+  const editAddress = (a: Address) => {
+    setEditingAddrId(a.id);
+    setAddrForm({
+      label: a.label || 'Home',
+      full_name: a.full_name || '',
+      phone: a.phone || '',
+      line1: a.line1 || '',
+      line2: a.line2 || '',
+      city: a.city || '',
+      pincode: a.pincode || '',
     });
-    setAddresses((prev) => [...prev, data]);
-    setShowAddrForm(false);
-    setAddrForm({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+    setShowAddrForm(true);
   };
 
   const deleteAddress = async (id: string) => {
@@ -416,7 +444,14 @@ export function AccountPage() {
         {tab === 'addresses' && (
           <div>
             <div className="mb-4 flex justify-end">
-              <button onClick={() => setShowAddrForm(true)} className="btn-primary">
+              <button
+                onClick={() => {
+                  setEditingAddrId(null);
+                  setAddrForm({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+                  setShowAddrForm(true);
+                }}
+                className="btn-primary"
+              >
                 <Plus size={16} /> Add Address
               </button>
             </div>
@@ -426,7 +461,11 @@ export function AccountPage() {
                 title="No saved addresses"
                 description="Add a delivery address to speed up checkout."
                 actionLabel="Add Address"
-                onAction={() => setShowAddrForm(true)}
+                onAction={() => {
+                  setEditingAddrId(null);
+                  setAddrForm({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+                  setShowAddrForm(true);
+                }}
               />
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -440,13 +479,24 @@ export function AccountPage() {
                           <span className="rounded bg-primary-50 px-1.5 py-0.5 text-xs text-primary-700">Default</span>
                         )}
                       </div>
-                      <button
-                        onClick={() => deleteAddress(a.id)}
-                        className="text-gray-400 hover:text-error-600"
-                        aria-label="Delete address"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => editAddress(a)}
+                          className="text-gray-400 hover:text-primary-600 p-1"
+                          aria-label="Edit address"
+                          title="Edit Address"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => deleteAddress(a.id)}
+                          className="text-gray-400 hover:text-error-600 p-1"
+                          aria-label="Delete address"
+                          title="Delete Address"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 text-sm text-gray-600">
                       <p className="font-medium text-gray-900">{a.full_name}</p>
@@ -464,8 +514,16 @@ export function AccountPage() {
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
                 <div className="w-full max-w-md rounded-xl bg-white p-5 animate-slide-up">
                   <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900">Add New Address</h3>
-                    <button onClick={() => setShowAddrForm(false)} aria-label="Close">
+                    <h3 className="font-semibold text-gray-900">
+                      {editingAddrId ? 'Edit Address' : 'Add New Address'}
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setShowAddrForm(false);
+                        setEditingAddrId(null);
+                      }}
+                      aria-label="Close"
+                    >
                       <X size={20} />
                     </button>
                   </div>
@@ -505,7 +563,9 @@ export function AccountPage() {
                       <input value={addrForm.city} onChange={(e) => setAddrForm({ ...addrForm, city: e.target.value })} className="input" />
                     </div>
                     {addrError && <p className="text-sm text-error-600">{addrError}</p>}
-                    <button onClick={saveAddress} className="btn-primary w-full">Save Address</button>
+                    <button onClick={saveAddress} className="btn-primary w-full">
+                      {editingAddrId ? 'Update Address' : 'Save Address'}
+                    </button>
                   </div>
                 </div>
               </div>

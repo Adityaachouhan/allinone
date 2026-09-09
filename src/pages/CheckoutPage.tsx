@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Smartphone } from 'lucide-react';
+import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Smartphone, Pencil } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -22,6 +22,7 @@ export function CheckoutPage() {
   // Form state
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [newAddr, setNewAddr] = useState({
     label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '',
   });
@@ -127,15 +128,56 @@ export function CheckoutPage() {
       setError('Pincode must be a 6-digit number.');
       return;
     }
-    const saved = await db.insertAddress({
-      ...newAddr,
-      user_id: session.user.id,
-      line2: newAddr.line2 || null,
-      is_default: addresses.length === 0,
+
+    try {
+      if (editingAddressId) {
+        const updated = await db.updateAddress(editingAddressId, {
+          ...newAddr,
+          line2: newAddr.line2 || null,
+        });
+        setAddresses((prev) => prev.map((a) => (a.id === editingAddressId ? updated : a)));
+        setSelectedAddressId(updated.id);
+      } else {
+        const saved = await db.insertAddress({
+          ...newAddr,
+          user_id: session.user.id,
+          line2: newAddr.line2 || null,
+          is_default: addresses.length === 0,
+        });
+        setAddresses((prev) => [...prev, saved]);
+        setSelectedAddressId(saved.id);
+      }
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+      setNewAddr({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save address.');
+    }
+  };
+
+  const handleEditAddress = (a: Address) => {
+    setEditingAddressId(a.id);
+    setNewAddr({
+      label: a.label || 'Home',
+      full_name: a.full_name || '',
+      phone: a.phone || '',
+      line1: a.line1 || '',
+      line2: a.line2 || '',
+      city: a.city || '',
+      pincode: a.pincode || '',
     });
-    setAddresses((prev) => [...prev, saved]);
-    setSelectedAddressId(saved.id);
+    setShowAddressForm(true);
+  };
+
+  const handleAddNewAddressClick = () => {
+    setEditingAddressId(null);
+    setNewAddr({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
+    setShowAddressForm(true);
+  };
+
+  const handleCancelAddressForm = () => {
     setShowAddressForm(false);
+    setEditingAddressId(null);
     setNewAddr({ label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '' });
   };
 
@@ -257,34 +299,49 @@ export function CheckoutPage() {
             {addresses.length > 0 && !showAddressForm && (
               <div className="space-y-2">
                 {addresses.map((a) => (
-                  <label
+                  <div
                     key={a.id}
-                    className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${
+                    onClick={() => setSelectedAddressId(a.id)}
+                    className={`flex items-start justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-all ${
                       selectedAddressId === a.id
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="address"
-                      checked={selectedAddressId === a.id}
-                      onChange={() => setSelectedAddressId(a.id)}
-                      className="mt-1 h-4 w-4 text-primary-600"
-                    />
-                    <div className="text-sm">
-                      <p className="font-medium text-gray-900">
-                        {a.full_name} <span className="text-gray-500">· {a.label}</span>
-                      </p>
-                      <p className="text-gray-600">
-                        {a.line1}{a.line2 ? `, ${a.line2}` : ''}, {a.city} – {a.pincode}
-                      </p>
-                      <p className="text-gray-500">Phone: {a.phone}</p>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="radio"
+                        name="address"
+                        checked={selectedAddressId === a.id}
+                        onChange={() => setSelectedAddressId(a.id)}
+                        className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div className="text-sm">
+                        <p className="font-medium text-gray-900">
+                          {a.full_name} <span className="text-gray-500">· {a.label}</span>
+                        </p>
+                        <p className="text-gray-600">
+                          {a.line1}{a.line2 ? `, ${a.line2}` : ''}, {a.city} – {a.pincode}
+                        </p>
+                        <p className="text-gray-500">Phone: {a.phone}</p>
+                      </div>
                     </div>
-                  </label>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditAddress(a);
+                      }}
+                      className="flex items-center gap-1 text-xs font-semibold text-primary-700 hover:text-primary-800 bg-white border border-gray-200 hover:border-primary-300 rounded px-2.5 py-1 shadow-sm transition-all shrink-0"
+                      title="Edit Address"
+                    >
+                      <Pencil size={13} />
+                      Edit
+                    </button>
+                  </div>
                 ))}
                 <button
-                  onClick={() => setShowAddressForm(true)}
+                  onClick={handleAddNewAddressClick}
                   className="text-sm font-medium text-primary-700 hover:text-primary-800"
                 >
                   + Add new address
@@ -294,6 +351,11 @@ export function CheckoutPage() {
 
             {showAddressForm && (
               <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                  <h3 className="font-medium text-gray-900 text-sm">
+                    {editingAddressId ? 'Edit Address' : 'Add New Address'}
+                  </h3>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <label className="label">Label</label>
@@ -366,9 +428,11 @@ export function CheckoutPage() {
                   />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={saveAddress} className="btn-primary">Save Address</button>
+                  <button onClick={saveAddress} className="btn-primary">
+                    {editingAddressId ? 'Update Address' : 'Save Address'}
+                  </button>
                   {addresses.length > 0 && (
-                    <button onClick={() => setShowAddressForm(false)} className="btn-secondary">
+                    <button onClick={handleCancelAddressForm} className="btn-secondary">
                       Cancel
                     </button>
                   )}

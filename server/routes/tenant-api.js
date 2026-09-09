@@ -498,6 +498,25 @@ router.post('/addresses', authRequired, asyncH(async (req, res) => {
   res.json(toPlain(row));
 }));
 
+router.patch('/addresses/:id', authRequired, asyncH(async (req, res) => {
+  const { Address } = req.tenantModels;
+  const a = req.body || {};
+  const addr = await Address.findOne({ where: { id: req.params.id, user_id: req.user.id } });
+  if (!addr) return res.status(404).json({ error: 'Address not found.' });
+
+  await addr.update({
+    label: a.label ?? addr.label,
+    full_name: a.full_name ?? addr.full_name,
+    phone: a.phone ?? addr.phone,
+    line1: a.line1 ?? addr.line1,
+    line2: a.line2 !== undefined ? a.line2 : addr.line2,
+    city: a.city ?? addr.city,
+    pincode: a.pincode ?? addr.pincode,
+    is_default: a.is_default ?? addr.is_default,
+  });
+  res.json(toPlain(addr));
+}));
+
 router.delete('/addresses/:id', authRequired, asyncH(async (req, res) => {
   const { Address } = req.tenantModels;
   await Address.destroy({ where: { id: req.params.id, user_id: req.user.id } });
