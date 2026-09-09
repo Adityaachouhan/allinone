@@ -109,7 +109,7 @@ export function CheckoutPage() {
   const isNewAddressValid =
     showAddressForm &&
     newAddr.full_name.trim().length > 0 &&
-    newAddr.phone.trim().length > 0 &&
+    /^\d{10}$/.test(newAddr.phone.trim()) &&
     newAddr.line1.trim().length > 0 &&
     newAddr.city.trim().length > 0 &&
     /^\d{6}$/.test(newAddr.pincode.trim());
@@ -122,6 +122,10 @@ export function CheckoutPage() {
     setError('');
     if (!newAddr.full_name || !newAddr.phone || !newAddr.line1 || !newAddr.city || !newAddr.pincode) {
       setError('Please fill all required address fields.');
+      return;
+    }
+    if (!/^\d{10}$/.test(newAddr.phone.trim())) {
+      setError('Phone number must be a 10-digit number.');
       return;
     }
     if (!/^\d{6}$/.test(newAddr.pincode)) {
@@ -383,10 +387,12 @@ export function CheckoutPage() {
                   <div>
                     <label className="label">Phone *</label>
                     <input
+                      type="tel"
                       value={newAddr.phone}
-                      onChange={(e) => setNewAddr({ ...newAddr, phone: e.target.value })}
+                      onChange={(e) => setNewAddr({ ...newAddr, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       className="input"
                       placeholder="10-digit mobile"
+                      maxLength={10}
                     />
                   </div>
                   <div>

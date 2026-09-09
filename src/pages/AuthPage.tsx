@@ -118,7 +118,7 @@ export function AuthPage() {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="input pl-10"
                   placeholder="10-digit mobile number"
                   maxLength={10}

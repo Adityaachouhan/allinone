@@ -106,9 +106,13 @@ export function AccountPage() {
 
   const saveProfile = async () => {
     if (!session) return;
+    if (editPhone && !/^\d{10}$/.test(editPhone.trim())) {
+      alert('Phone number must be a 10-digit number.');
+      return;
+    }
     setSavingProfile(true);
     try {
-      await db.updateProfile(session.user.id, { full_name: editName, phone: editPhone });
+      await db.updateProfile(session.user.id, { full_name: editName, phone: editPhone.trim() });
       await refreshProfile();
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2000);
@@ -122,6 +126,10 @@ export function AccountPage() {
     setAddrError('');
     if (!addrForm.full_name || !addrForm.phone || !addrForm.line1 || !addrForm.city || !addrForm.pincode) {
       setAddrError('Please fill all required fields.');
+      return;
+    }
+    if (!/^\d{10}$/.test(addrForm.phone.trim())) {
+      setAddrError('Phone number must be a 10-digit number.');
       return;
     }
     if (!/^\d{6}$/.test(addrForm.pincode)) {
@@ -543,7 +551,14 @@ export function AccountPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="label">Phone *</label>
-                        <input value={addrForm.phone} onChange={(e) => setAddrForm({ ...addrForm, phone: e.target.value })} className="input" maxLength={10} />
+                        <input
+                          type="tel"
+                          value={addrForm.phone}
+                          onChange={(e) => setAddrForm({ ...addrForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                          className="input"
+                          placeholder="10-digit mobile"
+                          maxLength={10}
+                        />
                       </div>
                       <div>
                         <label className="label">Pincode *</label>
@@ -589,7 +604,14 @@ export function AccountPage() {
                 </div>
                 <div>
                   <label className="label">Phone</label>
-                  <input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className="input" maxLength={10} />
+                  <input
+                    type="tel"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    className="input"
+                    placeholder="10-digit mobile"
+                    maxLength={10}
+                  />
                 </div>
                 <button onClick={saveProfile} disabled={savingProfile} className="btn-primary">
                   {savingProfile ? <Loader2 size={16} className="animate-spin" /> : profileSaved ? <><Check size={16} /> Saved</> : 'Save Changes'}
