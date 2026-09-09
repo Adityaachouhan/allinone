@@ -141,8 +141,11 @@ export function Footer({ categories }: { categories: Category[] }) {
             </li>
             <li className="flex items-center gap-2">
               <Phone size={18} className="shrink-0 text-primary-600" />
-              <a href={`tel:${phone}`} className="hover:text-primary-700">
-                {phone}
+              <a
+                href={`tel:${phone ? (phone.startsWith('+') ? phone : `+91${phone.replace(/\s+/g, '')}`) : ''}`}
+                className="hover:text-primary-700"
+              >
+                {phone ? (phone.startsWith('+') ? phone : `+91 ${phone}`) : ''}
               </a>
             </li>
             <li className="flex items-center gap-2">
