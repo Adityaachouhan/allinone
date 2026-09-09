@@ -167,73 +167,75 @@ export function ProductDetailPage() {
             <p className="mt-4 text-sm leading-relaxed text-gray-600">{product.description}</p>
           )}
 
-          {/* Quantity + Add to cart */}
+          {/* Single Unified Quantity / Cart Controls */}
           {available && (
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex items-center rounded-lg border border-gray-300">
+            inCart > 0 ? (
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl bg-primary-50 p-2.5 border border-primary-100 flex-1">
+                  <span className="text-sm font-semibold text-primary-900 ml-1">In your cart:</span>
+                  <div className="flex items-center rounded-lg border border-primary-200 bg-white shadow-sm">
+                    <button
+                      onClick={() => updateQuantity(product.id, inCart - 1)}
+                      className="flex h-10 w-10 items-center justify-center text-primary-700 hover:bg-primary-50 rounded-l-lg transition-colors"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="min-w-[2.5rem] text-center font-bold text-gray-900 text-sm">{inCart}</span>
+                    <button
+                      onClick={() => updateQuantity(product.id, inCart + 1)}
+                      className="flex h-10 w-10 items-center justify-center text-primary-700 hover:bg-primary-50 rounded-r-lg transition-colors"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => navigate('/cart')}
+                    className="btn-primary py-2.5 px-4 text-sm font-semibold ml-auto"
+                  >
+                    View Cart →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex items-center rounded-lg border border-gray-300">
+                  <button
+                    onClick={() => setQty((q) => Math.max(1, q - 1))}
+                    className="flex h-11 w-11 items-center justify-center text-gray-600 hover:bg-gray-50"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus size={18} />
+                  </button>
+                  <span className="min-w-[3rem] text-center font-semibold text-gray-900">{qty}</span>
+                  <button
+                    onClick={() => setQty((q) => q + 1)}
+                    className="flex h-11 w-11 items-center justify-center text-gray-600 hover:bg-gray-50"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className="flex h-11 w-11 items-center justify-center text-gray-600 hover:bg-gray-50"
-                  aria-label="Decrease quantity"
+                  onClick={handleAdd}
+                  className={`btn flex-1 px-6 py-3 ${
+                    justAdded ? 'bg-primary-600 text-white' : 'btn-primary'
+                  }`}
                 >
-                  <Minus size={18} />
-                </button>
-                <span className="min-w-[3rem] text-center font-semibold text-gray-900">{qty}</span>
-                <button
-                  onClick={() => setQty((q) => q + 1)}
-                  className="flex h-11 w-11 items-center justify-center text-gray-600 hover:bg-gray-50"
-                  aria-label="Increase quantity"
-                >
-                  <Plus size={18} />
+                  {justAdded ? (
+                    <>
+                      <Check size={18} /> Added to Cart
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={18} /> Add to Cart
+                    </>
+                  )}
                 </button>
               </div>
-
-              <button
-                onClick={handleAdd}
-                className={`btn flex-1 px-6 py-3 ${
-                  justAdded ? 'bg-primary-600 text-white' : 'btn-primary'
-                }`}
-              >
-                {justAdded ? (
-                  <>
-                    <Check size={18} /> Added to Cart
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart size={18} /> Add to Cart
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {inCart > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-primary-50 p-3 text-sm">
-              <span className="font-medium text-primary-800">{inCart} in your cart</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => updateQuantity(product.id, inCart - 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-primary-200 bg-white text-primary-700"
-                  aria-label="Decrease"
-                >
-                  <Minus size={14} />
-                </button>
-                <span className="min-w-[2rem] text-center font-semibold">{inCart}</span>
-                <button
-                  onClick={() => updateQuantity(product.id, inCart + 1)}
-                  className="flex h-7 w-7 items-center justify-center rounded border border-primary-200 bg-white text-primary-700"
-                  aria-label="Increase"
-                >
-                  <Plus size={14} />
-                </button>
-              </div>
-              <button
-                onClick={() => navigate('/cart')}
-                className="font-medium text-primary-700 hover:text-primary-800 sm:ml-auto"
-              >
-                View cart →
-              </button>
-            </div>
+            )
           )}
 
           {/* Assurance badges */}

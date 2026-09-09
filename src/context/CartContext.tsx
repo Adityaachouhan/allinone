@@ -64,6 +64,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     productId: string,
     requestedQty: number,
     fallbackProduct: Product,
+    currentInCartQty = 0,
   ) => {
     let liveProduct = await db.getProductById(productId);
     if (!liveProduct) {
@@ -78,9 +79,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (requestedQty > liveProduct.stock_quantity) {
-      setStockNotice(
-        `Limited Stock: Only ${liveProduct.stock_quantity} unit(s) of "${liveProduct.name}" available.`,
-      );
+      if (currentInCartQty >= liveProduct.stock_quantity) {
+        setStockNotice(
+          `Maximum Stock Reached: You already have all ${liveProduct.stock_quantity} available unit(s) of "${liveProduct.name}" in your cart.`,
+        );
+      } else {
+        setStockNotice(
+          `Limited Stock: Only ${liveProduct.stock_quantity} unit(s) of "${liveProduct.name}" available.`,
+        );
+      }
       return { ok: false, liveProduct, allowedQty: liveProduct.stock_quantity };
     }
 
@@ -96,7 +103,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const currentQty = existing ? existing.quantity : 0;
     const targetQty = currentQty + quantity;
 
-    const result = await checkStockAndValidate(product.id, targetQty, product);
+    const result = await checkStockAndValidate(product.id, targetQty, product, currentQty);
 
     if (result.allowedQty <= 0) {
       return false;
@@ -125,8 +132,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const existing = items.find((i) => i.product.id === productId);
     if (!existing) return false;
+    const currentQty = existing.quantity;
 
-    const result = await checkStockAndValidate(productId, quantity, existing.product);
+    const result = await checkStockAndValidate(productId, quantity, existing.product, currentQty);
 
     if (result.allowedQty <= 0) {
       return false;
