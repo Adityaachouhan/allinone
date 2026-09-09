@@ -119,6 +119,14 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return api<Product | null>(`/products/slug/${slug}`);
 }
 
+export async function getProductById(id: string): Promise<Product | null> {
+  try {
+    return await api<Product | null>(`/products/${id}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function insertProduct(
   data: Omit<Product, 'id' | 'created_at' | 'category' | 'rating'> & { rating?: number },
 ): Promise<Product> {

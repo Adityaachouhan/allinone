@@ -10,9 +10,14 @@ import type { DeliverySetting } from '@/types';
 
 export function CartPage() {
   const navigate = useNavigate();
-  const { items, subtotal, updateQuantity, removeItem, itemCount } = useCart();
+  const { items, subtotal, updateQuantity, removeItem, itemCount, recheckAllCartItems } = useCart();
   const { session } = useAuth();
   const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
+
+  // Re-verify stock for all cart items on page mount
+  useEffect(() => {
+    recheckAllCartItems();
+  }, []);
 
   // Pincode state (persisted in localStorage)
   const [pincode, setPincode] = useState(() => localStorage.getItem('aio_pincode') || '');

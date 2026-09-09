@@ -61,10 +61,12 @@ export function ProductDetailPage() {
   const discount = discountPercent(product.price, product.mrp);
   const inCart = getQuantity(product.id);
 
-  const handleAdd = () => {
-    addItem(product, qty);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 1500);
+  const handleAdd = async () => {
+    const ok = await addItem(product, qty);
+    if (ok) {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1500);
+    }
   };
 
   return (

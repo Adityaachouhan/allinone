@@ -11,7 +11,7 @@ import { Spinner } from '@/components/Feedback';
 export function CheckoutPage() {
   const navigate = useNavigate();
   const route = useRoute();
-  const { items, subtotal, clear } = useCart();
+  const { items, subtotal, clear, recheckAllCartItems } = useCart();
   const { session } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
@@ -191,6 +191,13 @@ export function CheckoutPage() {
       return;
     }
     setError('');
+
+    // Recheck live stock from server before proceeding
+    const stockOk = await recheckAllCartItems();
+    if (!stockOk) {
+      setError('Some items in your cart are no longer available or have limited stock. Please review your cart.');
+      return;
+    }
 
     let targetAddressId = selectedAddressId;
 

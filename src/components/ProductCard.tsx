@@ -14,10 +14,12 @@ export function ProductCard({ product }: { product: Product }) {
   const [justAdded, setJustAdded] = useState(false);
   const discount = discountPercent(product.price, product.mrp);
 
-  const handleAdd = () => {
-    addItem(product, 1);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 1200);
+  const handleAdd = async () => {
+    const ok = await addItem(product, 1);
+    if (ok) {
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1200);
+    }
   };
 
   return (

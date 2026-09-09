@@ -378,6 +378,13 @@ router.get('/products/slug/:slug', asyncH(async (req, res) => {
   res.json(mapProduct(row));
 }));
 
+router.get('/products/:id', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const row = await Product.findByPk(req.params.id, { include: [{ model: Category, as: 'category' }] });
+  if (!row) return res.status(404).json({ error: 'Product not found.' });
+  res.json(mapProduct(row));
+}));
+
 router.post('/products', authRequired, requireAdmin, asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
   const p = req.body;
