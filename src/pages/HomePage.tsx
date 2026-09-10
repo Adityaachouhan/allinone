@@ -60,51 +60,57 @@ export function HomePage() {
       {/* Hero banner carousel */}
       {banners.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pt-4 sm:pt-6">
-          <div className="relative overflow-hidden rounded-2xl bg-primary-700">
+          <div className="relative min-h-[280px] sm:min-h-[360px] md:min-h-[420px] overflow-hidden rounded-2xl bg-gray-900 shadow-xl flex items-center">
             {banners.map((banner, i) => (
               <div
                 key={banner.id}
                 className={
                   i === activeBanner
-                    ? 'relative'
-                    : 'pointer-events-none absolute inset-0 invisible'
+                    ? 'relative z-10 flex min-h-[280px] sm:min-h-[360px] md:min-h-[420px] w-full items-center p-6 sm:p-10 md:p-14 transition-opacity duration-500'
+                    : 'pointer-events-none absolute inset-0 invisible opacity-0'
                 }
                 aria-hidden={i !== activeBanner}
               >
-                <div className="grid items-center gap-4 sm:grid-cols-2">
-                  <div className="p-4 pb-8 sm:p-8">
-                    <h2 className="font-heading text-xl font-bold text-white sm:text-3xl">
-                      {banner.title}
-                    </h2>
-                    {banner.subtitle && (
-                      <p className="mt-1 text-xs text-primary-100 sm:text-base">{banner.subtitle}</p>
-                    )}
+                {/* Full Card Background Image */}
+                <img
+                  src={banner.image_url}
+                  alt={banner.title}
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                />
+                
+                {/* Contrast Gradient Overlay for Text Readability */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/30 sm:via-black/50" />
+
+                {/* Text Content Layered Over Image */}
+                <div className="relative z-10 max-w-2xl text-white">
+                  <h2 className="font-heading text-2xl font-extrabold tracking-tight drop-shadow-md sm:text-4xl md:text-5xl leading-tight">
+                    {banner.title}
+                  </h2>
+                  {banner.subtitle && (
+                    <p className="mt-2 text-sm font-medium text-gray-200 drop-shadow sm:text-lg md:text-xl max-w-xl">
+                      {banner.subtitle}
+                    </p>
+                  )}
+                  {banner.cta_label && (
                     <button
                       onClick={() => navigate(banner.cta_link)}
-                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-primary-700 hover:bg-primary-50 sm:text-sm sm:px-5 sm:py-2.5"
+                      className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-gray-900 shadow-lg transition-all hover:bg-primary-50 hover:scale-[1.02] active:scale-95 sm:text-sm sm:px-6 sm:py-3"
                     >
-                      {banner.cta_label} <ArrowRight size={16} />
+                      {banner.cta_label} <ArrowRight size={18} />
                     </button>
-                  </div>
-                  <div className="hidden h-40 sm:h-56 sm:block">
-                    <img
-                      src={banner.image_url}
-                      alt={banner.title}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
 
             {banners.length > 1 && (
-              <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+              <div className="absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2 bg-black/30 backdrop-blur-md px-3 py-1.5 rounded-full">
                 {banners.map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setActiveBanner(i)}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i === activeBanner ? 'w-5 bg-white' : 'w-1.5 bg-white/50'
+                    className={`h-2 rounded-full transition-all ${
+                      i === activeBanner ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/75'
                     }`}
                     aria-label={`Go to banner ${i + 1}`}
                   />

@@ -11,7 +11,7 @@ export async function fetchCategories(): Promise<Category[]> {
 
 export async function fetchBanners(): Promise<Banner[]> {
   try {
-    return await api<Banner[]>('/banners');
+    return await api<Banner[]>('/banners?activeOnly=true');
   } catch {
     return [];
   }

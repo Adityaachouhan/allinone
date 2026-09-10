@@ -10,8 +10,6 @@ import type { Address, Order, OrderItem } from '@/types';
 import { formatCurrency, formatDate, orderStatusLabels, ORDER_STATUS_FLOW } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
 
-import { AuthPage } from '@/pages/AuthPage';
-
 type Tab = 'orders' | 'addresses' | 'profile';
 
 export function AccountPage() {
