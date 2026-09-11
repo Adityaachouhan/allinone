@@ -20,7 +20,7 @@ import multer from 'multer';
 import path from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { generateInitialsSVG, clearIconCache } from '../pwa/icon-generator.js';
+import { generateInitialsSVG, generateAdaptiveLogoSVG, clearIconCache } from '../pwa/icon-generator.js';
 import { generateServiceWorker } from '../pwa/service-worker-template.js';
 
 // ── Upload storage setup ───────────────────────────────────────────────────────
@@ -292,21 +292,25 @@ router.get('/manifest.webmanifest', asyncH(async (req, res) => {
     const mime = getIconMimeType(logoUrl);
     // Explicit 192 and 512 with purpose "any" AND "maskable" are REQUIRED
     // for Android WebAPK to create the launcher icon in the app drawer.
+    // The maskable icon uses safe-zone padding and preserveAspectRatio
+    // so Android's adaptive mask never cuts off the logo edges!
     icons = [
-      { src: logoUrl,                  sizes: '192x192',  type: mime, purpose: 'any'      },
-      { src: logoUrl,                  sizes: '512x512',  type: mime, purpose: 'any'      },
-      { src: logoUrl,                  sizes: '192x192',  type: mime, purpose: 'maskable' },
-      { src: logoUrl,                  sizes: '512x512',  type: mime, purpose: 'maskable' },
-      { src: '/api/pwa-icon?size=192', sizes: '192x192',  type: mime, purpose: 'any'      },
-      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: mime, purpose: 'any'      },
-      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: mime, purpose: 'maskable' },
+      { src: '/api/pwa-icon-maskable?size=512', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/api/pwa-icon-maskable?size=192', sizes: '192x192', type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/api/pwa-icon-adaptive?size=512', sizes: '512x512', type: 'image/svg+xml', purpose: 'any'      },
+      { src: '/api/pwa-icon-adaptive?size=192', sizes: '192x192', type: 'image/svg+xml', purpose: 'any'      },
+      { src: logoUrl,                           sizes: '192x192',  type: mime,            purpose: 'any'      },
+      { src: logoUrl,                           sizes: '512x512',  type: mime,            purpose: 'any'      },
+      { src: '/api/pwa-icon?size=192',          sizes: '192x192',  type: mime,            purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512',          sizes: '512x512',  type: mime,            purpose: 'any'      },
     ];
   } else {
     icons = [
-      { src: '/api/pwa-icon?size=192', sizes: '192x192',  type: 'image/svg+xml', purpose: 'any'      },
-      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: 'image/svg+xml', purpose: 'any'      },
-      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: 'image/svg+xml', purpose: 'maskable' },
-      { src: '/api/pwa-icon-svg',      sizes: 'any',      type: 'image/svg+xml'                      },
+      { src: '/api/pwa-icon-maskable?size=512', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/api/pwa-icon-maskable?size=192', sizes: '192x192', type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/api/pwa-icon?size=192',          sizes: '192x192',  type: 'image/svg+xml', purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512',          sizes: '512x512',  type: 'image/svg+xml', purpose: 'any'      },
+      { src: '/api/pwa-icon-svg',               sizes: 'any',      type: 'image/svg+xml'                      },
     ];
   }
 
@@ -332,6 +336,35 @@ router.get('/manifest.webmanifest', asyncH(async (req, res) => {
   res.setHeader('Content-Type', 'application/manifest+json');
   res.setHeader('Cache-Control', 'public, max-age=300'); // 5 min cache — updates quickly after settings change
   res.json(manifest);
+}));
+
+// ── Dynamic Adaptive & Maskable PWA Icons (Safe-zone fitted, no edge cutting) ─
+router.get(['/pwa-icon-maskable', '/pwa-icon-adaptive'], asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data  = await getLatestStoreSettings(req.tenantDb);
+  const size  = Math.min(Math.max(parseInt(req.query.size) || 512, 48), 512);
+  const slug  = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
+  const name  = data.store_name  || req.tenant?.business_name || 'Grocery';
+  const color = data.theme_color || '#16a34a';
+
+  let filePath = null;
+  const rawUrl = String(data.logo_url || '').trim();
+  if (rawUrl.startsWith('/uploads/')) {
+    filePath = path.join(uploadDir, rawUrl.replace(/^\/uploads\//, ''));
+  }
+
+  const svg = generateAdaptiveLogoSVG({
+    filePath,
+    logoUrl: rawUrl,
+    storeName: name,
+    themeColor: color,
+    size,
+    cacheKey: `${slug}:adaptive:${size}`,
+  });
+
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(svg);
 }));
 
 // ── Dynamic PWA Icon — SVG (fast, no deps) ────────────────────────────────────

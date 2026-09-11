@@ -326,19 +326,27 @@ export function AdminStoreSettingsPage() {
           {/* Mobile App Icon Preview */}
           <div className="mt-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white font-bold text-xl shadow-md overflow-hidden transition-colors"
+              className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl p-1.5 text-white font-bold text-xl shadow-md overflow-hidden transition-colors border border-black/5"
               style={{ backgroundColor: form.theme_color || '#16a34a' }}
             >
               {form.logo_url ? (
-                <img src={form.logo_url} alt="App Icon" className="h-full w-full object-cover" />
+                <div className="flex h-full w-full items-center justify-center rounded-xl bg-white p-1 shadow-inner overflow-hidden">
+                  <img
+                    src={form.logo_url}
+                    alt="App Icon"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
               ) : (
-                (form.store_name || 'G').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+                <span className="drop-shadow-sm">
+                  {(form.store_name || 'G').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()}
+                </span>
               )}
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Mobile App Icon Preview</p>
+              <p className="text-sm font-semibold text-gray-900">Mobile App Drawer & Home Screen Icon</p>
               <p className="text-xs text-gray-500 mt-0.5">
-                This icon appears in the customer's mobile app drawer and home screen when installed. PNG or JPG recommended.
+                Automatically scaled with safe-zone padding to fit any uploaded image (wide, tall, or square) without cutting off edges on Android or iOS.
               </p>
             </div>
           </div>
@@ -448,9 +456,11 @@ export function AdminStoreSettingsPage() {
             <div className="border-b border-gray-200 pb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 {form.logo_url ? (
-                  <img src={form.logo_url} alt="Logo" className="w-8 h-8 rounded-lg object-cover border" />
+                  <div className="w-8 h-8 rounded-lg bg-white p-0.5 border border-gray-200 flex items-center justify-center shrink-0">
+                    <img src={form.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
+                  </div>
                 ) : (
-                  <div className="w-8 h-8 rounded-lg bg-green-600 text-white flex items-center justify-center font-bold text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-primary-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
                     {(form.store_name || 'A')[0]}
                   </div>
                 )}

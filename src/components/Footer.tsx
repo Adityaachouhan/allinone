@@ -37,11 +37,13 @@ export function Footer({ categories }: { categories: Category[] }) {
         <div>
           <div className="flex items-center gap-2">
             {storeSettings.logo_url ? (
-              <img
-                src={storeSettings.logo_url}
-                alt={storeName}
-                className="h-9 w-9 rounded-lg object-cover border border-gray-200"
-              />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-0.5 border border-gray-200 shadow-sm overflow-hidden">
+                <img
+                  src={storeSettings.logo_url}
+                  alt={storeName}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
             ) : (
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
                 <Leaf size={20} />

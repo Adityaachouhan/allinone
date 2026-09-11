@@ -135,15 +135,17 @@ export function InstallPWAPrompt() {
           <div className="flex items-center gap-3 p-4">
             {/* Store icon */}
             <div
-              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white shadow-lg"
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl p-1.5 text-white shadow-lg border border-black/5"
               style={{ background: `linear-gradient(135deg, ${themeColor}, ${themeColor}cc)` }}
             >
               {logoUrl ? (
-                <img
-                  src={logoUrl}
-                  alt={storeName}
-                  className="h-full w-full rounded-2xl object-cover"
-                />
+                <div className="flex h-full w-full items-center justify-center rounded-xl bg-white p-1 shadow-inner overflow-hidden">
+                  <img
+                    src={logoUrl}
+                    alt={storeName}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
               ) : (
                 <span className="text-xl font-bold">{initials}</span>
               )}

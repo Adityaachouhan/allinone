@@ -65,7 +65,9 @@ export function AuthPage() {
           {/* Logo */}
           <div className="flex flex-col items-center text-center">
             {storeSettings.logo_url ? (
-              <img src={storeSettings.logo_url} alt={storeSettings.store_name || 'Logo'} className="h-14 w-14 rounded-xl object-cover border" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-1 border border-gray-200 shadow-sm overflow-hidden">
+                <img src={storeSettings.logo_url} alt={storeSettings.store_name || 'Logo'} className="max-h-full max-w-full object-contain" />
+              </div>
             ) : (
               <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary-600 text-white font-bold">
                 <Leaf size={28} />

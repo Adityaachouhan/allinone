@@ -578,7 +578,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col bg-gray-900 text-gray-300">
       <div className="flex items-center gap-2 border-b border-gray-800 p-5">
         {storeSettings.logo_url ? (
-          <img src={storeSettings.logo_url} alt="Logo" className="h-9 w-9 rounded-lg object-cover border border-gray-700" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-0.5 border border-gray-700 shadow-sm overflow-hidden">
+            <img src={storeSettings.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
+          </div>
         ) : (
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
             <Leaf size={20} />

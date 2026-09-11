@@ -95,11 +95,13 @@ export function Header({ categories }: { categories: Category[] }) {
             className="flex min-w-0 items-center gap-2 shrink-0"
           >
             {storeSettings.logo_url ? (
-              <img
-                src={storeSettings.logo_url}
-                alt={storeSettings.store_name || 'Store Logo'}
-                className="h-9 w-9 shrink-0 rounded-lg object-cover border border-gray-200"
-              />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-0.5 border border-gray-200 shadow-sm overflow-hidden">
+                <img
+                  src={storeSettings.logo_url}
+                  alt={storeSettings.store_name || 'Store Logo'}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
             ) : (
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold">
                 <Leaf size={20} />
@@ -268,11 +270,13 @@ export function Header({ categories }: { categories: Category[] }) {
             <div className="flex items-center justify-between border-b border-gray-100 p-4">
               <div className="flex items-center gap-2 min-w-0">
                 {storeSettings.logo_url ? (
-                  <img
-                    src={storeSettings.logo_url}
-                    alt="Logo"
-                    className="h-8 w-8 shrink-0 rounded-lg object-cover border border-gray-200"
-                  />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white p-0.5 border border-gray-200 shadow-sm overflow-hidden">
+                    <img
+                      src={storeSettings.logo_url}
+                      alt="Logo"
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
                 ) : (
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white font-bold text-xs">
                     <Leaf size={16} />

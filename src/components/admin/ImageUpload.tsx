@@ -131,7 +131,7 @@ export function ImageUpload({
           <img
             src={value}
             alt="Preview"
-            className={`rounded-lg object-cover border border-gray-200 shadow-sm ${previewClass}`}
+            className={`rounded-lg object-contain bg-white p-1 border border-gray-200 shadow-sm ${previewClass}`}
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <button

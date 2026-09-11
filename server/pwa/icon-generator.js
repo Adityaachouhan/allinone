@@ -11,6 +11,8 @@
  * Cache: in-memory Map keyed by `${slug}:${size}` — generated once per tenant per size.
  */
 
+import { readFileSync, existsSync } from 'node:fs';
+
 // ── In-memory icon cache ──────────────────────────────────────────────────────
 const iconCache = new Map();
 
@@ -98,6 +100,73 @@ function darken(hex) {
   } catch {
     return '#0f7030';
   }
+}
+
+/**
+ * Generate an adaptive, safe-zone padded SVG wrapper around any uploaded logo.
+ * Uses `preserveAspectRatio="xMidYMid meet"` so wide, tall, or irregular images
+ * are fitted completely into the icon frame without cutting edges.
+ *
+ * Embeds the file as an inline base64 data URI so the SVG is 100% self-contained
+ * and requires no secondary network requests by Android WebAPK or iOS.
+ *
+ * @param {object} opts
+ * @param {string} opts.filePath    - Local absolute disk path to uploaded image file
+ * @param {string} opts.logoUrl     - Fallback relative or absolute URL
+ * @param {string} opts.storeName   - Display name for fallback initials
+ * @param {string} opts.themeColor  - Hex color e.g. '#16a34a'
+ * @param {number} opts.size        - Width/height in px (192, 512, etc.)
+ * @param {string} opts.cacheKey    - Unique cache key
+ * @returns {string}                 SVG string
+ */
+export function generateAdaptiveLogoSVG({ filePath, logoUrl, storeName, themeColor, size = 512, cacheKey }) {
+  if (iconCache.has(cacheKey)) {
+    return iconCache.get(cacheKey);
+  }
+
+  let imageHref = logoUrl;
+  if (filePath && existsSync(filePath)) {
+    try {
+      const buffer = readFileSync(filePath);
+      const ext = filePath.split('.').pop()?.toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'svg' ? 'image/svg+xml' : 'image/jpeg';
+      imageHref = `data:${mime};base64,${buffer.toString('base64')}`;
+    } catch {
+      imageHref = logoUrl;
+    }
+  }
+
+  if (!imageHref) {
+    return generateInitialsSVG({ storeName, themeColor, size, cacheKey });
+  }
+
+  const color = /^#[0-9a-fA-F]{3,6}$/.test(themeColor) ? themeColor : '#16a34a';
+  // 15% safe-zone margin guarantees Android adaptive mask never clips logo
+  const pad = Math.round(size * 0.15);
+  const innerSize = size - pad * 2;
+  const outerRadius = Math.round(size * 0.22);
+  const innerRadius = Math.round(size * 0.16);
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <defs>
+    <linearGradient id="brandBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+      <stop offset="100%" style="stop-color:${darken(color)};stop-opacity:1" />
+    </linearGradient>
+    <filter id="plateShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="${Math.round(size * 0.015)}" stdDeviation="${Math.round(size * 0.025)}" flood-opacity="0.15" />
+    </filter>
+  </defs>
+  <!-- Outer brand background frame -->
+  <rect width="${size}" height="${size}" rx="${outerRadius}" fill="url(#brandBg)" />
+  <!-- Inner white card with safe-zone inset -->
+  <rect x="${Math.round(size * 0.06)}" y="${Math.round(size * 0.06)}" width="${Math.round(size * 0.88)}" height="${Math.round(size * 0.88)}" rx="${innerRadius}" fill="#ffffff" filter="url(#plateShadow)" />
+  <!-- Fitted logo image without edge-cutting -->
+  <image href="${imageHref}" x="${pad}" y="${pad}" width="${innerSize}" height="${innerSize}" preserveAspectRatio="xMidYMid meet" />
+</svg>`;
+
+  iconCache.set(cacheKey, svg);
+  return svg;
 }
 
 /**
