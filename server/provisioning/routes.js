@@ -13,6 +13,7 @@ import pg from 'pg';
 
 import { requireSuperAdmin } from '../superadmin-auth.js';
 import { provisionTenant } from './provision-tenant.js';
+import { sseManager } from '../middleware/sse-manager.js';
 import {
   Tenant,
   TenantSubscription,
@@ -197,6 +198,34 @@ router.post('/:id/set-credentials', asyncH(async (req, res) => {
   });
 }));
 
+// ── POST /superadmin/api/tenants/:id/notify ──────────────────────────────────
+// Sends a real-time popup alert to the tenant domain's admin panel via SSE.
+router.post('/:id/notify', asyncH(async (req, res) => {
+  const tenant = await Tenant.findByPk(req.params.id);
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found.' });
+
+  const { message, title } = req.body;
+  if (!message?.trim()) return res.status(400).json({ error: 'message is required.' });
+
+  sseManager.notifyTenant(tenant.id, {
+    event:     'super_admin_alert',
+    title:     title?.trim() || 'Message from SaaS Admin',
+    message:   message.trim(),
+    sentAt:    new Date().toISOString(),
+    tenantId:  tenant.id,
+  });
+
+  await AuditLog.create({
+    actor_id:         req.superAdmin.id,
+    actor_email:      req.superAdmin.email,
+    action:           'tenant.notification_sent',
+    target_tenant_id: tenant.id,
+    details:          { title, message },
+  });
+
+  res.json({ ok: true });
+}));
+
 // ── GET /superadmin/api/tenants/:id/audit ────────────────────────────────────
 router.get('/:id/audit', asyncH(async (req, res) => {
   const logs = await AuditLog.findAll({
@@ -253,6 +282,41 @@ router.post('/:id/subscriptions', asyncH(async (req, res) => {
   });
 
   res.json(sub);
+}));
+
+// ── DELETE /superadmin/api/tenants/:id ────────────────────────────────────────
+router.delete('/:id', asyncH(async (req, res) => {
+  const tenant = await Tenant.findByPk(req.params.id);
+  if (!tenant) return res.status(404).json({ error: 'Tenant not found.' });
+
+  const { hard } = req.query; // ?hard=true for hard delete (master DB record only)
+
+  if (hard === 'true') {
+    // Hard delete: remove from master DB (does NOT drop the tenant PG database)
+    await TenantSubscription.destroy({ where: { tenant_id: tenant.id } });
+    await DomainProvisioning.destroy({ where: { tenant_id: tenant.id } });
+    await AuditLog.create({
+      actor_id:         req.superAdmin.id,
+      actor_email:      req.superAdmin.email,
+      action:           'tenant.deleted',
+      target_tenant_id: tenant.id,
+      details:          { business_name: tenant.business_name, domain: tenant.domain, hard: true },
+    });
+    await tenant.destroy();
+    return res.json({ ok: true, deleted: true });
+  }
+
+  // Soft delete: set status to 'cancelled'
+  const prevStatus = tenant.status;
+  await tenant.update({ status: 'cancelled' });
+  await AuditLog.create({
+    actor_id:         req.superAdmin.id,
+    actor_email:      req.superAdmin.email,
+    action:           'tenant.deleted',
+    target_tenant_id: tenant.id,
+    details:          { business_name: tenant.business_name, domain: tenant.domain, hard: false, prev_status: prevStatus },
+  });
+  res.json({ ok: true, deleted: false, status: 'cancelled' });
 }));
 
 // ── Helper: strip sensitive DB fields from responses ─────────────────────────

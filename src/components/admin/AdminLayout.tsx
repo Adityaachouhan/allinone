@@ -18,12 +18,13 @@
  *  4. NewOrderNotificationStack renders each card (auto-dismiss after 5 s)
  *  5. A 'new-order' CustomEvent is dispatched on window so pages can refresh
  *  6. Optional: plays a chime & fires browser Notification
+ *  7. super_admin_alert: shown as a 10-second popup, max 2 times per day.
  */
 
 import { type ReactNode, useState, useEffect, useRef, useCallback } from 'react';
 import {
   LayoutDashboard, Package, Tags, ShoppingBag, Users, Image, Truck,
-  LogOut, Leaf, Menu, Settings, Bell, X, ChevronRight, Clock,
+  LogOut, Leaf, Menu, Settings, Bell, X, ChevronRight, Clock, AlertCircle,
 } from 'lucide-react';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useAuth } from '@/context/AuthContext';
@@ -33,6 +34,114 @@ import {
   NewOrderNotificationStack,
   type OrderNotification,
 } from '@/components/admin/NewOrderNotification';
+
+// ── Super Admin Alert Toast ───────────────────────────────────────────────────
+const SA_ALERT_KEY = 'sa_alert_count'; // localStorage key: { date: 'YYYY-MM-DD', count: number }
+const SA_ALERT_MAX_PER_DAY = 2;
+const SA_ALERT_DURATION_MS = 10000;
+
+function canShowSaAlert(): boolean {
+  try {
+    const raw = localStorage.getItem(SA_ALERT_KEY);
+    const today = new Date().toISOString().slice(0, 10);
+    if (!raw) return true;
+    const { date, count } = JSON.parse(raw) as { date: string; count: number };
+    if (date !== today) return true;
+    return count < SA_ALERT_MAX_PER_DAY;
+  } catch { return true; }
+}
+
+function recordSaAlertShown(): void {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const raw = localStorage.getItem(SA_ALERT_KEY);
+    let count = 0;
+    if (raw) {
+      const parsed = JSON.parse(raw) as { date: string; count: number };
+      count = parsed.date === today ? parsed.count : 0;
+    }
+    localStorage.setItem(SA_ALERT_KEY, JSON.stringify({ date: today, count: count + 1 }));
+  } catch { /* ignore */ }
+}
+
+interface SaAlertData { title: string; message: string; sentAt: string; }
+
+function SuperAdminAlertToast({ alert, onClose }: { alert: SaAlertData; onClose: () => void }) {
+  const [progress, setProgress] = useState(100);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const start = Date.now();
+    intervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - start;
+      const remaining = Math.max(0, 100 - (elapsed / SA_ALERT_DURATION_MS) * 100);
+      setProgress(remaining);
+      if (remaining <= 0) { clearInterval(intervalRef.current!); onClose(); }
+    }, 50);
+    return () => { clearInterval(intervalRef.current!); };
+  }, [onClose]);
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '80px',
+      right: '20px',
+      zIndex: 99999,
+      width: '360px',
+      background: 'linear-gradient(135deg, #1e1b4b, #312e81)',
+      borderRadius: '16px',
+      boxShadow: '0 20px 60px rgba(99,102,241,0.35), 0 0 0 1px rgba(99,102,241,0.3)',
+      overflow: 'hidden',
+      animation: 'saAlertIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    }}>
+      <style>{`
+        @keyframes saAlertIn {
+          from { opacity: 0; transform: translateX(30px) scale(0.95); }
+          to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+      `}</style>
+      {/* Header */}
+      <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+        <div style={{
+          flexShrink: 0,
+          width: '38px', height: '38px',
+          borderRadius: '10px',
+          background: 'rgba(99,102,241,0.3)',
+          border: '1px solid rgba(99,102,241,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <AlertCircle size={18} color='#a5b4fc' />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#a5b4fc', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            {alert.title}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#e0e7ff', lineHeight: '1.5' }}>
+            {alert.message}
+          </p>
+          <p style={{ margin: '6px 0 0', fontSize: '10px', color: '#818cf8' }}>
+            {new Date(alert.sentAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          style={{ flexShrink: 0, background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '6px', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#a5b4fc' }}
+        >
+          <X size={13} />
+        </button>
+      </div>
+      {/* Progress bar */}
+      <div style={{ height: '3px', background: 'rgba(255,255,255,0.1)' }}>
+        <div style={{
+          height: '100%',
+          width: `${progress}%`,
+          background: 'linear-gradient(90deg, #6366f1, #818cf8)',
+          transition: 'width 0.05s linear',
+        }} />
+      </div>
+    </div>
+  );
+}
 
 const navItems = [
   { path: '/admin/dashboard',      label: 'Dashboard',      icon: LayoutDashboard },
@@ -459,6 +568,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
   const [notifHistory, setNotifHistory] = useState<NotificationHistoryItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ── Super Admin Alert state ───────────────────────────────────────────────
+  const [saAlert, setSaAlert] = useState<SaAlertData | null>(null);
+
   // Track seen order IDs to prevent duplicate notifications
   const seenOrderIds = useRef<Set<string>>(new Set());
   // Track the active EventSource instance to close on cleanup
@@ -507,6 +619,15 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           // ── data_changed: re-broadcast so admin pages auto-refresh ──────────
           if (data.event === 'data_changed') {
             window.dispatchEvent(new CustomEvent('admin-data-changed', { detail: data }));
+            return;
+          }
+
+          // ── super_admin_alert: show 10-second popup, max 2×/day ───────────
+          if (data.event === 'super_admin_alert') {
+            if (canShowSaAlert()) {
+              setSaAlert({ title: data.title, message: data.message, sentAt: data.sentAt });
+              recordSaAlertShown();
+            }
             return;
           }
 
@@ -695,6 +816,14 @@ export function AdminLayout({ children }: { children: ReactNode }) {
         notifications={notifications}
         onClose={dismissNotification}
       />
+
+      {/* ── Super Admin Alert popup ── */}
+      {saAlert && (
+        <SuperAdminAlertToast
+          alert={saAlert}
+          onClose={() => setSaAlert(null)}
+        />
+      )}
     </div>
   );
 }
