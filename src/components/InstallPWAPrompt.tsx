@@ -40,12 +40,10 @@ export function InstallPWAPrompt() {
     const dismissedUntil = localStorage.getItem(DISMISSED_KEY);
     if (dismissedUntil && Date.now() < Number(dismissedUntil)) return;
 
-    // Show after 3 seconds for a non-intrusive experience
-    const timer = setTimeout(() => {
-      if (isInstallable || isIOS) setVisible(true);
-    }, 3000);
-
-    return () => clearTimeout(timer);
+    // Show immediately whenever the user opens the store (no delay)
+    if (isInstallable || isIOS) {
+      setVisible(true);
+    }
   }, [isInstallable, isIOS, isAdminRoute, isStandalone]);
 
   const handleDismiss = () => {
