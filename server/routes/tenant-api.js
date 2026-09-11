@@ -20,6 +20,8 @@ import multer from 'multer';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { generateInitialsSVG, clearIconCache } from '../pwa/icon-generator.js';
+import { generateServiceWorker } from '../pwa/service-worker-template.js';
 
 // ── Upload storage setup ───────────────────────────────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -171,6 +173,7 @@ const STORE_SETTINGS_COLUMNS = [
     return_policy text,
     grievance_officer text,
     delivery_areas text NOT NULL DEFAULT '',
+    theme_color text NOT NULL DEFAULT '#16a34a',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
@@ -184,6 +187,7 @@ const STORE_SETTINGS_COLUMNS = [
   `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text`,
   `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text`,
   `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT ''`,
+  `ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS theme_color text NOT NULL DEFAULT '#16a34a'`,
 ];
 
 // Per-request guard: tracks which tenant DBs have already been healed in this
@@ -221,6 +225,118 @@ router.get('/store', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const data = await getLatestStoreSettings(req.tenantDb);
   res.json(data);
+}));
+
+// ── Public Store Settings (no auth — for PWA manifest, install prompt) ────────
+router.get('/public/store-settings', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data = await getLatestStoreSettings(req.tenantDb);
+  // Return only safe, public fields
+  res.json({
+    store_name:  data.store_name  || '',
+    tagline:     data.tagline     || '',
+    logo_url:    data.logo_url    || '',
+    phone:       data.phone       || '',
+    theme_color: data.theme_color || '#16a34a',
+  });
+}));
+
+// ── Dynamic PWA Web App Manifest (per-tenant) ─────────────────────────────────
+// Served at /api/manifest.webmanifest — routed from /manifest.webmanifest in server/index.js
+router.get('/manifest.webmanifest', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data     = await getLatestStoreSettings(req.tenantDb);
+  const name     = data.store_name  || req.tenant?.business_name || 'Grocery Mart';
+  const tagline  = data.tagline     || 'Fresh groceries delivered';
+  const color    = data.theme_color || '#16a34a';
+  // Short name: first word or up to 12 chars
+  const shortName = name.split(' ')[0].slice(0, 12) || 'Grocery';
+
+  const manifest = {
+    name,
+    short_name:       shortName,
+    description:      tagline,
+    start_url:        '/',
+    scope:            '/',
+    display:          'standalone',
+    orientation:      'portrait-primary',
+    theme_color:      color,
+    background_color: '#ffffff',
+    lang:             'en',
+    icons: [
+      { src: '/api/pwa-icon?size=192',         sizes: '192x192',  type: 'image/png'             },
+      { src: '/api/pwa-icon?size=512',         sizes: '512x512',  type: 'image/png'             },
+      { src: '/api/pwa-icon?size=512',         sizes: '512x512',  type: 'image/png', purpose: 'maskable' },
+      { src: '/api/pwa-icon-svg',              sizes: 'any',      type: 'image/svg+xml'         },
+    ],
+    screenshots: [],
+    shortcuts: [
+      { name: 'Shop Now', short_name: 'Shop', description: 'Browse products',   url: '/',       icons: [{ src: '/api/pwa-icon?size=96', sizes: '96x96' }] },
+      { name: 'My Cart',  short_name: 'Cart', description: 'View your cart',    url: '/cart',   icons: [{ src: '/api/pwa-icon?size=96', sizes: '96x96' }] },
+    ],
+  };
+
+  res.setHeader('Content-Type', 'application/manifest+json');
+  res.setHeader('Cache-Control', 'public, max-age=300'); // 5 min cache — updates quickly after settings change
+  res.json(manifest);
+}));
+
+// ── Dynamic PWA Icon — SVG (fast, no deps) ────────────────────────────────────
+// If store has a logo_url, redirect to it. Otherwise generate initials SVG.
+router.get('/pwa-icon-svg', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data  = await getLatestStoreSettings(req.tenantDb);
+  const slug  = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
+  const name  = data.store_name  || req.tenant?.business_name || 'Grocery';
+  const color = data.theme_color || '#16a34a';
+  const size  = 512;
+
+  if (data.logo_url) {
+    return res.redirect(302, data.logo_url);
+  }
+
+  const svg = generateInitialsSVG({ storeName: name, themeColor: color, size, cacheKey: `${slug}:svg` });
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(svg);
+}));
+
+// ── Dynamic PWA Icon — PNG-compatible (SVG served as PNG size hint) ───────────
+// Browsers that request a sized icon get our SVG with proper dimensions.
+// The ?size param is used for cache-busting and SVG viewBox only.
+router.get('/pwa-icon', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data  = await getLatestStoreSettings(req.tenantDb);
+  const size  = Math.min(Math.max(parseInt(req.query.size) || 192, 48), 512);
+  const slug  = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
+  const name  = data.store_name  || req.tenant?.business_name || 'Grocery';
+  const color = data.theme_color || '#16a34a';
+
+  if (data.logo_url) {
+    // Store has a real logo — redirect to it; browser caches it
+    return res.redirect(302, data.logo_url);
+  }
+
+  // Generate initials SVG — works in modern browsers as a manifest icon
+  const svg = generateInitialsSVG({ storeName: name, themeColor: color, size, cacheKey: `${slug}:${size}` });
+  res.setHeader('Content-Type', 'image/svg+xml');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.send(svg);
+}));
+
+// ── Dynamic Service Worker (per-tenant) ───────────────────────────────────────
+// Served at /sw.js — routed from /sw.js in server/index.js
+router.get('/sw.js', asyncH(async (req, res) => {
+  await ensureStoreSettingsSchema(req);
+  const data   = await getLatestStoreSettings(req.tenantDb);
+  const slug   = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
+  const name   = data.store_name || req.tenant?.business_name || 'Grocery Mart';
+  const swCode = generateServiceWorker({ slug, storeName: name });
+  res.setHeader('Content-Type', 'application/javascript');
+  // SW must not be cached too long — 0 ensures the browser re-checks on every visit
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.send(swCode);
 }));
 
 // ── Customer Auth ─────────────────────────────────────────────────────────────
@@ -726,7 +842,7 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   // 1. Ensure all columns exist in the DB (adds tagline etc. if missing)
   await ensureStoreSettingsSchema(req);
 
-  const ALLOWED = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas'];
+  const ALLOWED = ['store_name','tagline','logo_url','phone','email','address','gstin','return_policy','grievance_officer','delivery_areas','theme_color'];
   const patch = {};
   for (const key of ALLOWED) if (req.body[key] !== undefined) patch[key] = req.body[key];
 
@@ -754,6 +870,10 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
       { bind: Object.values(patch) }
     );
   }
+
+  // Clear icon cache so updated logo/color takes effect immediately
+  const slugForCache = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
+  clearIconCache(slugForCache);
 
   sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
 

@@ -6,12 +6,21 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent font scaling on device rotation in iOS */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-gray-50 text-gray-900 font-sans;
+    /* Remove iOS tap highlight for native-feel tap responses */
+    -webkit-tap-highlight-color: transparent;
   }
   h1, h2, h3, h4 {
     @apply font-heading;
+  }
+  /* iOS momentum scrolling on all scroll containers */
+  * {
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -45,3 +54,10 @@
 /* Thin scrollbar utility for horizontal scroll areas */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* iOS dynamic viewport height fix:
+   Safari's 100vh includes the address bar, causing layout overflow.
+   100dvh (dynamic viewport height) excludes it — correct on all modern browsers. */
+.min-h-dvh  { min-height: 100dvh; }
+.h-dvh      { height: 100dvh; }
+

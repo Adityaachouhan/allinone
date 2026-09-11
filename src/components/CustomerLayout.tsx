@@ -12,7 +12,9 @@ export function CustomerLayout({
   categories: Category[];
 }) {
   return (
-    <div className="flex min-h-screen flex-col pb-20 lg:pb-0">
+    // min-h-dvh: iOS Safari fix — 100dvh excludes the floating address bar
+    // pb-[calc(64px+env(safe-area-inset-bottom))]: room for bottom nav + iPhone home indicator
+    <div className="min-h-dvh flex flex-col pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0">
       <Header categories={categories} />
       <main className="flex-1">{children}</main>
       <Footer categories={categories} />
@@ -20,3 +22,4 @@ export function CustomerLayout({
     </div>
   );
 }
+

@@ -137,4 +137,5 @@ export type StoreSettings = {
   return_policy: string;
   grievance_officer: string;
   delivery_areas: string;
+  theme_color?: string;
 };

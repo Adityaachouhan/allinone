@@ -13,6 +13,7 @@ const DEFAULT_STORE_SETTINGS: StoreSettings = {
   return_policy: '',
   grievance_officer: '',
   delivery_areas: '',
+  theme_color: '#16a34a',
 };
 
 type StoreContextValue = {
@@ -43,6 +44,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return_policy: data.return_policy ?? '',
           grievance_officer: data.grievance_officer ?? '',
           delivery_areas: data.delivery_areas ?? '',
+          theme_color: typeof data.theme_color === 'string' ? data.theme_color : '#16a34a',
         });
       }
     } catch (err) {

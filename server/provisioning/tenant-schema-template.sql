@@ -180,6 +180,7 @@ CREATE TABLE IF NOT EXISTS store_settings (
   return_policy     text,
   grievance_officer text,       -- name + email of grievance officer (DPDP/Consumer Protection)
   delivery_areas    text        NOT NULL DEFAULT '',
+  theme_color       text        NOT NULL DEFAULT '#16a34a',  -- PWA toolbar color
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
@@ -215,4 +216,5 @@ ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS gstin text NOT NULL DEFAULT 
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS return_policy text;
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS grievance_officer text;
 ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS delivery_areas text NOT NULL DEFAULT '';
+ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS theme_color text NOT NULL DEFAULT '#16a34a';
 INSERT INTO store_settings (store_name) VALUES ('') ON CONFLICT DO NOTHING;

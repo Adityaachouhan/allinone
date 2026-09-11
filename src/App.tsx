@@ -7,6 +7,7 @@ import { fetchCategories } from '@/lib/queries';
 import type { Category } from '@/types';
 
 import { CustomerLayout } from '@/components/CustomerLayout';
+import { InstallPWAPrompt } from '@/components/InstallPWAPrompt';
 import { HomePage } from '@/pages/HomePage';
 import { ProductListingPage } from '@/pages/ProductListingPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
@@ -89,7 +90,12 @@ function AppRoutes() {
 
   // --- Customer routes ---
   const page = renderCustomerPage(route.path, categories);
-  return <CustomerLayout categories={categories}>{page}</CustomerLayout>;
+  return (
+    <>
+      <CustomerLayout categories={categories}>{page}</CustomerLayout>
+      <InstallPWAPrompt />
+    </>
+  );
 }
 
 function renderAdminPage(path: string) {

@@ -60,6 +60,19 @@ app.get('/superadmin/api/health', async (_req, res) => {
 // tenantResolver MUST run before any tenant data query
 app.use('/api', tenantResolver, requireTenant, tenantApiRouter);
 
+// ── Dynamic PWA files (served BEFORE static so every tenant gets their own) ───
+// /manifest.webmanifest and /sw.js must live at the root (not under /api/) per
+// spec — browsers always fetch them from the origin root.
+// We forward them through the tenant-aware router which reads store_settings.
+app.get('/manifest.webmanifest', tenantResolver, requireTenant, (req, res, next) => {
+  req.url = '/manifest.webmanifest';
+  tenantApiRouter(req, res, next);
+});
+app.get('/sw.js', tenantResolver, requireTenant, (req, res, next) => {
+  req.url = '/sw.js';
+  tenantApiRouter(req, res, next);
+});
+
 // ── Serve Vite Production Build ───────────────────────────────────────────────
 // In development: Vite dev server handles the frontend.
 // In production: Express serves the built React SPA.
@@ -67,7 +80,7 @@ app.use('/api', tenantResolver, requireTenant, tenantApiRouter);
 if (existsSync(distDir)) {
   app.use(express.static(distDir));
   // SPA fallback — all non-API, non-SA routes serve index.html
-  app.get(/^(?!\/api|\/superadmin).*/, (_req, res) => {
+  app.get(/^\/(?!api|superadmin).*/, (_req, res) => {
     res.sendFile(join(distDir, 'index.html'));
   });
 }
