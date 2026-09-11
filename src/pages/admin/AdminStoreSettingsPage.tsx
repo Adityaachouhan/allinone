@@ -4,7 +4,8 @@ import type { StoreSettings } from '@/types';
 import { ImageUpload } from '@/components/admin/ImageUpload';
 import { useStoreSettings } from '@/context/StoreContext';
 import { api } from '@/lib/api';
-import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText, Lock } from 'lucide-react';
+import { Store, CheckCircle, RefreshCw, Eye, Sparkles, MapPin, Phone, FileText, Lock, Palette, Check } from 'lucide-react';
+import { applyThemeColor } from '@/lib/theme';
 
 const EMPTY: StoreSettings = {
   store_name: '', tagline: '', logo_url: '', phone: '', email: '',
@@ -62,7 +63,10 @@ export function AdminStoreSettingsPage() {
 
   const loadSettings = () => {
     db.getStoreSettings()
-      .then((d) => { setForm({ ...EMPTY, ...d }); })
+      .then((d) => {
+        setForm({ ...EMPTY, ...d });
+        if (d?.theme_color) applyThemeColor(d.theme_color);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
@@ -86,6 +90,9 @@ export function AdminStoreSettingsPage() {
     setError('');
     setSaved(false);
     try {
+      if (updatedData.theme_color) {
+        applyThemeColor(updatedData.theme_color);
+      }
       // Instantly update backend database AND global StoreContext
       const savedRes = await syncContextStoreSettings(updatedData);
       if (savedRes && typeof savedRes === 'object') {
@@ -228,9 +235,100 @@ export function AdminStoreSettingsPage() {
             </div>
           </div>
 
+          {/* Store Theme Color — Color Wheel & Curated Presets */}
+          <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50/75 p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Palette className="w-5 h-5 text-primary-600" />
+                <span className="text-sm font-semibold text-gray-900">Store Brand Theme Color</span>
+              </div>
+              <span className="text-xs text-gray-500">
+                Transforms buttons, navigation, highlights & accents on storefront & admin
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 pt-1">
+              {/* Interactive Color Wheel Picker */}
+              <label
+                className="relative group flex items-center gap-2.5 cursor-pointer rounded-xl bg-white border border-gray-200 px-3 py-2 shadow-sm transition-all hover:border-primary-400 hover:shadow"
+                title="Click to open full color wheel"
+              >
+                <div
+                  className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0.5 shadow-md transition-transform group-hover:scale-110"
+                  style={{
+                    background: 'conic-gradient(from 0deg, #ff0000, #ff8800, #ffff00, #00ff00, #00ffff, #0066ff, #9900ff, #ff0099, #ff0000)',
+                  }}
+                >
+                  <div
+                    className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white shadow-inner"
+                    style={{ backgroundColor: form.theme_color || '#16a34a' }}
+                  >
+                    <Palette size={12} className="text-white drop-shadow" />
+                  </div>
+                  {/* Invisible native color wheel input covering the picker button */}
+                  <input
+                    type="color"
+                    value={form.theme_color || '#16a34a'}
+                    onChange={(e) => {
+                      const color = e.target.value;
+                      setForm((f) => ({ ...f, theme_color: color }));
+                      applyThemeColor(color);
+                    }}
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    aria-label="Color wheel picker"
+                  />
+                </div>
+                <div className="text-left select-none">
+                  <p className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                    Color Wheel <span className="text-primary-600">✦</span>
+                  </p>
+                  <p className="text-[11px] text-gray-500">Pick any custom shade</p>
+                </div>
+              </label>
+
+              {/* Quick Swatches */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { name: 'Fresh Emerald', hex: '#16a34a' },
+                  { name: 'Sapphire Blue', hex: '#2563eb' },
+                  { name: 'Royal Violet', hex: '#7c3aed' },
+                  { name: 'Sunset Orange', hex: '#ea580c' },
+                  { name: 'Crimson Red', hex: '#dc2626' },
+                  { name: 'Oceanic Teal', hex: '#0891b2' },
+                  { name: 'Golden Amber', hex: '#ca8a04' },
+                  { name: 'Vibrant Rose', hex: '#e11d48' },
+                  { name: 'Deep Indigo', hex: '#4f46e5' },
+                ].map((item) => {
+                  const isSelected = (form.theme_color || '#16a34a').toLowerCase() === item.hex.toLowerCase();
+                  return (
+                    <button
+                      key={item.hex}
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, theme_color: item.hex }));
+                        applyThemeColor(item.hex);
+                      }}
+                      className="relative h-9 w-9 rounded-full border-2 border-white shadow-sm transition-all hover:scale-110 flex items-center justify-center"
+                      style={{
+                        backgroundColor: item.hex,
+                        boxShadow: isSelected ? `0 0 0 2.5px ${item.hex}` : undefined,
+                      }}
+                      title={item.name}
+                    >
+                      {isSelected && <Check size={14} className="text-white drop-shadow stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* Mobile App Icon Preview */}
           <div className="mt-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white font-bold text-xl shadow-md overflow-hidden">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-white font-bold text-xl shadow-md overflow-hidden transition-colors"
+              style={{ backgroundColor: form.theme_color || '#16a34a' }}
+            >
               {form.logo_url ? (
                 <img src={form.logo_url} alt="App Icon" className="h-full w-full object-cover" />
               ) : (

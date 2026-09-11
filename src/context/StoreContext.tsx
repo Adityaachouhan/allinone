@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import * as db from '@/lib/db';
 import type { StoreSettings } from '@/types';
+import { applyThemeColor } from '@/lib/theme';
 
 const DEFAULT_STORE_SETTINGS: StoreSettings = {
   store_name: '',
@@ -64,6 +65,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       document.title = `${storeSettings.store_name}${storeSettings.tagline ? ' - ' + storeSettings.tagline : ''}`;
     }
   }, [storeSettings.store_name, storeSettings.tagline]);
+
+  // Apply dynamic theme color CSS variables across entire app
+  useEffect(() => {
+    applyThemeColor(storeSettings.theme_color || '#16a34a');
+  }, [storeSettings.theme_color]);
 
   const updateSettings = async (patch: Partial<StoreSettings>): Promise<StoreSettings> => {
     const updated = await db.updateStoreSettings(patch);
