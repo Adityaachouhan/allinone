@@ -217,67 +217,31 @@ export function AdminStoreSettingsPage() {
             />
             <div>
               <ImageUpload
-                label="Store Logo"
+                label="Store Logo / App Icon"
                 value={form.logo_url}
                 onChange={(url) => setForm((f) => ({ ...f, logo_url: url }))}
                 previewClass="h-20 w-20"
               />
+              <p className="text-xs text-gray-400 mt-1">
+                Used as the store header logo and the mobile app drawer & home screen icon.
+              </p>
             </div>
           </div>
 
-          {/* PWA Theme Color */}
-          <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[180px]">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  App Theme Color
-                  <span className="ml-1.5 text-xs font-normal text-gray-400">(PWA install icon background & browser toolbar)</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    value={form.theme_color || '#16a34a'}
-                    onChange={(e) => setForm((f) => ({ ...f, theme_color: e.target.value }))}
-                    className="h-10 w-14 cursor-pointer rounded-lg border border-gray-300 bg-white p-1"
-                    aria-label="Theme color picker"
-                  />
-                  <input
-                    type="text"
-                    value={form.theme_color || '#16a34a'}
-                    onChange={(e) => setForm((f) => ({ ...f, theme_color: e.target.value }))}
-                    placeholder="#16a34a"
-                    maxLength={7}
-                    className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500"
-                  />
-                  {/* Quick presets */}
-                  <div className="flex gap-1.5 flex-wrap">
-                    {['#16a34a','#2563eb','#dc2626','#7c3aed','#ea580c','#0891b2','#ca8a04'].map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, theme_color: c }))}
-                        className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
-                        style={{ backgroundColor: c, borderColor: form.theme_color === c ? '#111' : 'transparent' }}
-                        title={c}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Mini icon preview */}
-              <div className="flex flex-col items-center gap-1.5 shrink-0">
-                <div
-                  className="flex h-14 w-14 items-center justify-center rounded-2xl text-white font-bold text-lg shadow-md"
-                  style={{ background: `linear-gradient(135deg, ${form.theme_color || '#16a34a'}, ${form.theme_color || '#16a34a'}aa)` }}
-                >
-                  {form.logo_url
-                    ? <img src={form.logo_url} alt="" className="h-14 w-14 rounded-2xl object-cover" />
-                    : (form.store_name || 'G').split(' ').slice(0,2).map((w: string) => w[0]).join('').toUpperCase()
-                  }
-                </div>
-                <p className="text-[10px] text-gray-400 text-center">Home screen<br />preview</p>
-              </div>
+          {/* Mobile App Icon Preview */}
+          <div className="mt-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white font-bold text-xl shadow-md overflow-hidden">
+              {form.logo_url ? (
+                <img src={form.logo_url} alt="App Icon" className="h-full w-full object-cover" />
+              ) : (
+                (form.store_name || 'G').split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase()
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Mobile App Icon Preview</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                This icon appears in the customer's mobile app drawer and home screen when installed. PNG or JPG recommended.
+              </p>
             </div>
           </div>
         </div>

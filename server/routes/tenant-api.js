@@ -18,7 +18,7 @@ import { Op } from 'sequelize';
 import { sseManager } from '../middleware/sse-manager.js';
 import multer from 'multer';
 import path from 'node:path';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { generateInitialsSVG, clearIconCache } from '../pwa/icon-generator.js';
 import { generateServiceWorker } from '../pwa/service-worker-template.js';
@@ -241,6 +241,39 @@ router.get('/public/store-settings', asyncH(async (req, res) => {
   });
 }));
 
+// ── Helper: determine icon MIME type from filename ───────────────────────────
+function getIconMimeType(url = '') {
+  const clean = String(url).split('?')[0].toLowerCase();
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.svg')) return 'image/svg+xml';
+  return 'image/png';
+}
+
+// ── Helper: attempt to serve the local logo file directly (HTTP 200) ──────────
+// Android WebAPK minting fails if icon URLs return HTTP 302 redirects.
+function trySendLogoFile(logoUrl, res) {
+  if (!logoUrl) return false;
+  const rawUrl = String(logoUrl).trim();
+  if (rawUrl.startsWith('/uploads/')) {
+    const filename = rawUrl.replace(/^\/uploads\//, '');
+    const filePath = path.join(uploadDir, filename);
+    if (existsSync(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.sendFile(filePath);
+      return true;
+    }
+  }
+  const publicPath = path.join(__dirname, '..', '..', 'public', rawUrl.replace(/^\//, ''));
+  if (existsSync(publicPath)) {
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.sendFile(publicPath);
+    return true;
+  }
+  return false;
+}
+
 // ── Dynamic PWA Web App Manifest (per-tenant) ─────────────────────────────────
 // Served at /api/manifest.webmanifest — routed from /manifest.webmanifest in server/index.js
 router.get('/manifest.webmanifest', asyncH(async (req, res) => {
@@ -251,6 +284,31 @@ router.get('/manifest.webmanifest', asyncH(async (req, res) => {
   const color    = data.theme_color || '#16a34a';
   // Short name: first word or up to 12 chars
   const shortName = name.split(' ')[0].slice(0, 12) || 'Grocery';
+
+  const logoUrl = (data.logo_url || '').trim();
+  let icons = [];
+
+  if (logoUrl) {
+    const mime = getIconMimeType(logoUrl);
+    // Explicit 192 and 512 with purpose "any" AND "maskable" are REQUIRED
+    // for Android WebAPK to create the launcher icon in the app drawer.
+    icons = [
+      { src: logoUrl,                  sizes: '192x192',  type: mime, purpose: 'any'      },
+      { src: logoUrl,                  sizes: '512x512',  type: mime, purpose: 'any'      },
+      { src: logoUrl,                  sizes: '192x192',  type: mime, purpose: 'maskable' },
+      { src: logoUrl,                  sizes: '512x512',  type: mime, purpose: 'maskable' },
+      { src: '/api/pwa-icon?size=192', sizes: '192x192',  type: mime, purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: mime, purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: mime, purpose: 'maskable' },
+    ];
+  } else {
+    icons = [
+      { src: '/api/pwa-icon?size=192', sizes: '192x192',  type: 'image/svg+xml', purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: 'image/svg+xml', purpose: 'any'      },
+      { src: '/api/pwa-icon?size=512', sizes: '512x512',  type: 'image/svg+xml', purpose: 'maskable' },
+      { src: '/api/pwa-icon-svg',      sizes: 'any',      type: 'image/svg+xml'                      },
+    ];
+  }
 
   const manifest = {
     name,
@@ -263,16 +321,11 @@ router.get('/manifest.webmanifest', asyncH(async (req, res) => {
     theme_color:      color,
     background_color: '#ffffff',
     lang:             'en',
-    icons: [
-      { src: '/api/pwa-icon?size=192',         sizes: '192x192',  type: 'image/png'             },
-      { src: '/api/pwa-icon?size=512',         sizes: '512x512',  type: 'image/png'             },
-      { src: '/api/pwa-icon?size=512',         sizes: '512x512',  type: 'image/png', purpose: 'maskable' },
-      { src: '/api/pwa-icon-svg',              sizes: 'any',      type: 'image/svg+xml'         },
-    ],
+    icons,
     screenshots: [],
     shortcuts: [
-      { name: 'Shop Now', short_name: 'Shop', description: 'Browse products',   url: '/',       icons: [{ src: '/api/pwa-icon?size=96', sizes: '96x96' }] },
-      { name: 'My Cart',  short_name: 'Cart', description: 'View your cart',    url: '/cart',   icons: [{ src: '/api/pwa-icon?size=96', sizes: '96x96' }] },
+      { name: 'Shop Now', short_name: 'Shop', description: 'Browse products',   url: '/',       icons: [{ src: logoUrl || '/api/pwa-icon?size=96', sizes: '96x96' }] },
+      { name: 'My Cart',  short_name: 'Cart', description: 'View your cart',    url: '/cart',   icons: [{ src: logoUrl || '/api/pwa-icon?size=96', sizes: '96x96' }] },
     ],
   };
 
@@ -282,7 +335,6 @@ router.get('/manifest.webmanifest', asyncH(async (req, res) => {
 }));
 
 // ── Dynamic PWA Icon — SVG (fast, no deps) ────────────────────────────────────
-// If store has a logo_url, redirect to it. Otherwise generate initials SVG.
 router.get('/pwa-icon-svg', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const data  = await getLatestStoreSettings(req.tenantDb);
@@ -291,8 +343,15 @@ router.get('/pwa-icon-svg', asyncH(async (req, res) => {
   const color = data.theme_color || '#16a34a';
   const size  = 512;
 
+  if (trySendLogoFile(data.logo_url, res)) {
+    return;
+  }
+
   if (data.logo_url) {
-    return res.redirect(302, data.logo_url);
+    const rawUrl = String(data.logo_url).trim();
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return res.redirect(302, rawUrl);
+    }
   }
 
   const svg = generateInitialsSVG({ storeName: name, themeColor: color, size, cacheKey: `${slug}:svg` });
@@ -301,9 +360,7 @@ router.get('/pwa-icon-svg', asyncH(async (req, res) => {
   res.send(svg);
 }));
 
-// ── Dynamic PWA Icon — PNG-compatible (SVG served as PNG size hint) ───────────
-// Browsers that request a sized icon get our SVG with proper dimensions.
-// The ?size param is used for cache-busting and SVG viewBox only.
+// ── Dynamic PWA Icon (directly serves binary file or initials SVG) ────────────
 router.get('/pwa-icon', asyncH(async (req, res) => {
   await ensureStoreSettingsSchema(req);
   const data  = await getLatestStoreSettings(req.tenantDb);
@@ -312,12 +369,20 @@ router.get('/pwa-icon', asyncH(async (req, res) => {
   const name  = data.store_name  || req.tenant?.business_name || 'Grocery';
   const color = data.theme_color || '#16a34a';
 
-  if (data.logo_url) {
-    // Store has a real logo — redirect to it; browser caches it
-    return res.redirect(302, data.logo_url);
+  // Send the actual image file directly with 200 OK — NEVER 302 redirect
+  // because Android WebAPK and iOS Safari silently fail on redirects.
+  if (trySendLogoFile(data.logo_url, res)) {
+    return;
   }
 
-  // Generate initials SVG — works in modern browsers as a manifest icon
+  if (data.logo_url) {
+    const rawUrl = String(data.logo_url).trim();
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return res.redirect(302, rawUrl);
+    }
+  }
+
+  // Generate initials SVG fallback
   const svg = generateInitialsSVG({ storeName: name, themeColor: color, size, cacheKey: `${slug}:${size}` });
   res.setHeader('Content-Type', 'image/svg+xml');
   res.setHeader('Cache-Control', 'public, max-age=3600');
