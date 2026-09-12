@@ -1,6 +1,6 @@
 import {
   Apple, Carrot, Milk, Wheat, Cookie, SprayCan, Home, ShoppingBag, Utensils, Flame, Sparkles, CupSoda, Croissant, Lollipop,
-  Gift, Baby, Flower2, Snowflake, Pepper,
+  Gift, Baby, Flower2, Snowflake, FlameKindling,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,12 +26,12 @@ const iconMap: Record<string, LucideIcon> = {
   Baby,
   Flower2,
   Snowflake,
-  Pepper,
+  FlameKindling,
   // Friendly aliases (used as icon_name in DB)
   Kids:   Baby,
   Beauty: Flower2,
   Frozen: Snowflake,
-  Spices: Pepper,
+  Spices: FlameKindling,
 };
 
 export function getCategoryIcon(iconName: string): LucideIcon {
