@@ -6,7 +6,12 @@ import { slugify } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
 import { getCategoryIcon } from '@/components/CategoryIcon';
 
-const ICON_OPTIONS = ['Apple', 'Milk', 'Wheat', 'Cookie', 'SprayCan', 'Home', 'ShoppingBag'];
+const ICON_OPTIONS = [
+  'Apple', 'Milk', 'Wheat', 'Cookie', 'SprayCan', 'Home', 'ShoppingBag',
+  'Carrot', 'Utensils', 'Flame', 'Sparkles', 'CupSoda', 'Bread', 'Candy',
+  // New categories
+  'Gift', 'Kids', 'Beauty', 'Frozen', 'Spices',
+];
 
 export function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
