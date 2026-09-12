@@ -41,13 +41,6 @@ export function MobileBottomNav() {
               style={{ minHeight: 56 }}
               aria-label={item.label}
             >
-              {/* Active indicator dot above icon */}
-              {active && (
-                <span
-                  className="absolute top-1.5 left-1/2 -translate-x-1/2 h-1 w-5 rounded-full bg-primary-600"
-                  style={{ background: 'linear-gradient(90deg,#16a34a,#22c55e)' }}
-                />
-              )}
 
               <div className="relative">
                 <Icon
