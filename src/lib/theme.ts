@@ -44,10 +44,36 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h, Math.round(s * 100), Math.round(l * 100)];
 }
 
-export function applyThemeColor(baseHex: string) {
+export const THEME_COLOR_KEY = 'aio_store_theme_color';
+
+export function getCachedThemeColor(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(THEME_COLOR_KEY);
+    if (cached && /^#[0-9a-fA-F]{3,6}$/.test(cached)) {
+      return cached;
+    }
+  } catch {
+    // Ignore storage access errors
+  }
+  return null;
+}
+
+export function cacheThemeColor(color: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (color && /^#[0-9a-fA-F]{3,6}$/.test(color)) {
+      localStorage.setItem(THEME_COLOR_KEY, color);
+    }
+  } catch {
+    // Ignore storage quota/permission errors
+  }
+}
+
+export function applyThemeColor(baseHex: string, persist = true) {
   if (typeof document === 'undefined') return;
 
-  const validHex = /^#[0-9a-fA-F]{3,6}$/.test(baseHex) ? baseHex : '#16a34a';
+  const validHex = /^#[0-9a-fA-F]{3,6}$/.test(baseHex) ? baseHex : (getCachedThemeColor() || '#16a34a');
   const [r, g, b] = hexToRgb(validHex);
   const [h, s, l] = rgbToHsl(r, g, b);
 
@@ -74,5 +100,17 @@ export function applyThemeColor(baseHex: string) {
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) {
     metaTheme.setAttribute('content', validHex);
+  }
+
+  if (persist && validHex) {
+    cacheThemeColor(validHex);
+  }
+}
+
+// Auto-apply cached theme on module evaluation to eliminate flash of default colors
+if (typeof window !== 'undefined') {
+  const cached = getCachedThemeColor();
+  if (cached) {
+    applyThemeColor(cached, false);
   }
 }

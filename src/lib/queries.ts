@@ -3,24 +3,48 @@ import { api } from '@/lib/api';
 
 export async function fetchCategories(): Promise<Category[]> {
   try {
-    return await api<Category[]>('/categories');
+    const data = await api<Category[]>('/categories');
+    if (Array.isArray(data) && data.length > 0) {
+      try { localStorage.setItem('aio_cache_categories', JSON.stringify(data)); } catch {}
+    }
+    return data;
   } catch {
+    try {
+      const cached = localStorage.getItem('aio_cache_categories');
+      if (cached) return JSON.parse(cached) as Category[];
+    } catch {}
     return [];
   }
 }
 
 export async function fetchBanners(): Promise<Banner[]> {
   try {
-    return await api<Banner[]>('/banners?activeOnly=true');
+    const data = await api<Banner[]>('/banners?activeOnly=true');
+    if (Array.isArray(data) && data.length > 0) {
+      try { localStorage.setItem('aio_cache_banners', JSON.stringify(data)); } catch {}
+    }
+    return data;
   } catch {
+    try {
+      const cached = localStorage.getItem('aio_cache_banners');
+      if (cached) return JSON.parse(cached) as Banner[];
+    } catch {}
     return [];
   }
 }
 
 export async function fetchAllProducts(): Promise<Product[]> {
   try {
-    return await api<Product[]>('/products');
+    const data = await api<Product[]>('/products');
+    if (Array.isArray(data) && data.length > 0) {
+      try { localStorage.setItem('aio_cache_products', JSON.stringify(data)); } catch {}
+    }
+    return data;
   } catch {
+    try {
+      const cached = localStorage.getItem('aio_cache_products');
+      if (cached) return JSON.parse(cached) as Product[];
+    } catch {}
     return [];
   }
 }

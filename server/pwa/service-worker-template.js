@@ -20,7 +20,7 @@
  * @returns {string}               - JavaScript source code for the SW
  */
 export function generateServiceWorker({ slug, storeName }) {
-  const cacheName = `grocery-pwa-${slug}-v1`;
+  const cacheName = `grocery-pwa-${slug}-v2`;
 
   return `
 // ============================================================
@@ -33,6 +33,7 @@ const CACHE_NAME = '${cacheName}';
 // Core shell files to pre-cache on install
 const PRECACHE_URLS = [
   '/',
+  '/manifest.webmanifest',
   '/offline.html',
 ];
 
@@ -69,7 +70,31 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin requests
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Never cache API calls — always network
+  // Public store settings and catalog APIs: Network-First with cache fallback for offline sync
+  const isPublicStoreApi =
+    url.pathname === '/api/store' ||
+    url.pathname === '/api/public/store-settings' ||
+    url.pathname.startsWith('/api/categories') ||
+    url.pathname.startsWith('/api/banners') ||
+    url.pathname.startsWith('/api/products') ||
+    url.pathname.startsWith('/api/store-settings/delivery');
+
+  if (isPublicStoreApi) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const toCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, toCache));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Never cache other API calls (auth, cart/orders mutations, admin) — always direct network
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(request));
     return;
@@ -81,8 +106,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — Cache-First (JS, CSS, fonts, images, uploads)
+  // Static assets — Cache-First (JS, CSS, fonts, images, uploads, manifest)
   const isStatic =
+    url.pathname === '/manifest.webmanifest' ||
     url.pathname.startsWith('/uploads/') ||
     /\\.(js|css|woff2?|ttf|otf|eot|svg|png|jpg|jpeg|gif|ico|webp)$/i.test(url.pathname);
 
