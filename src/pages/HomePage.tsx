@@ -129,7 +129,7 @@ export function HomePage() {
           {[
             { icon: Truck, title: 'Fast Delivery', desc: 'Within 2 hours' },
             { icon: Tag, title: 'Best Prices', desc: 'Daily essentials' },
-            { icon: ShieldCheck, title: 'Secure Payment', desc: 'UPI · Card · COD' },
+            { icon: ShieldCheck, title: 'Secure Payment', desc: 'Card · Net Banking · COD' },
             { icon: Clock, title: 'Open 7 AM–10 PM', desc: 'Order anytime' },
           ].map((b) => {
             const Icon = b.icon;

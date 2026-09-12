@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Smartphone, Pencil } from 'lucide-react';
+import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Pencil } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -512,10 +512,10 @@ export function CheckoutPage() {
                   onChange={() => setPaymentMode('online')}
                   className="h-4 w-4 text-primary-600"
                 />
-                <Smartphone size={20} className="text-gray-600" />
+                <CreditCard size={20} className="text-gray-600" />
                 <div className="text-sm">
                   <p className="font-medium text-gray-900">Online Payment</p>
-                  <p className="text-gray-500">UPI / Card / Net Banking (demo)</p>
+                  <p className="text-gray-500">Card / Net Banking (demo)</p>
                 </div>
               </label>
             </div>
