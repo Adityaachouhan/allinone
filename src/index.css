@@ -9,11 +9,33 @@
     /* Prevent font scaling on device rotation in iOS */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Disable pinch-to-zoom gestures and double-tap zoom while retaining smooth panning */
+    touch-action: pan-x pan-y;
+    overflow-x: hidden;
+    width: 100%;
   }
   body {
     @apply bg-gray-50 text-gray-900 font-sans;
     /* Remove iOS tap highlight for native-feel tap responses */
     -webkit-tap-highlight-color: transparent;
+    touch-action: pan-x pan-y;
+    overflow-x: hidden;
+    width: 100%;
+    min-width: 320px;
+  }
+  #root {
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+  }
+  /* Prevent iOS automatic zoom on focus by ensuring minimum 16px font size on mobile */
+  input, select, textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input, select, textarea {
+      font-size: 0.875rem;
+    }
   }
   h1, h2, h3, h4 {
     @apply font-heading;
