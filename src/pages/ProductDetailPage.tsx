@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, Minus, Plus, ShoppingCart, Check, Truck, ShieldCheck, RotateCcw } from 'lucide-react';
+import { ChevronRight, Minus, Plus, ShoppingCart, Check, Truck, Banknote, RotateCcw } from 'lucide-react';
 import type { Product } from '@/types';
 import { useNavigate, useRoute } from '@/lib/router';
 import { useCart } from '@/context/CartContext';
@@ -242,7 +242,7 @@ export function ProductDetailPage() {
           <div className="mt-6 grid grid-cols-3 gap-3 border-t border-gray-100 pt-6">
             {[
               { icon: Truck, label: 'Fast Delivery' },
-              { icon: ShieldCheck, label: 'Secure Payment' },
+              { icon: Banknote, label: 'Cash on Delivery' },
               { icon: RotateCcw, label: 'Easy Returns' },
             ].map((b) => {
               const Icon = b.icon;

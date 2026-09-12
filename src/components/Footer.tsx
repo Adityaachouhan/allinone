@@ -21,7 +21,7 @@ export function Footer({ categories }: { categories: Category[] }) {
           {[
             { title: 'Fresh Products', desc: 'Hand-picked daily' },
             { title: 'Fast Delivery', desc: 'Within 2 hours' },
-            { title: 'Secure Payments', desc: 'Card, Net Banking & COD' },
+            { title: 'Cash on Delivery', desc: 'Pay when delivered' },
             { title: 'Easy Returns', desc: 'Hassle-free refunds' },
           ].map((b) => (
             <div key={b.title} className="text-center sm:text-left">

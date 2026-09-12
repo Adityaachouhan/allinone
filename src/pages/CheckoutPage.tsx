@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, CreditCard, Truck, ChevronLeft, Banknote, Pencil } from 'lucide-react';
+import { MapPin, Truck, ChevronLeft, Banknote, Pencil } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, useRoute } from '@/lib/router';
@@ -27,7 +27,7 @@ export function CheckoutPage() {
     label: 'Home', full_name: '', phone: '', line1: '', line2: '', city: '', pincode: '',
   });
   const [deliverySlot, setDeliverySlot] = useState('');
-  const [paymentMode, setPaymentMode] = useState<'cod' | 'online'>('cod');
+  const paymentMode = 'cod';
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
@@ -480,42 +480,22 @@ export function CheckoutPage() {
           </Section>
 
           {/* Payment */}
-          <Section icon={CreditCard} title="Payment Method" step={3}>
+          <Section icon={Banknote} title="Payment Method" step={3}>
             <div className="space-y-2">
               <label
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
-                  paymentMode === 'cod' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-primary-500 bg-primary-50 p-3"
               >
                 <input
                   type="radio"
                   name="payment"
-                  checked={paymentMode === 'cod'}
-                  onChange={() => setPaymentMode('cod')}
+                  checked={true}
+                  readOnly
                   className="h-4 w-4 text-primary-600"
                 />
-                <Banknote size={20} className="text-gray-600" />
+                <Banknote size={20} className="text-primary-600" />
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">Cash on Delivery</p>
+                  <p className="font-medium text-gray-900">Cash on Delivery (COD)</p>
                   <p className="text-gray-500">Pay with cash when your order arrives</p>
-                </div>
-              </label>
-              <label
-                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 ${
-                  paymentMode === 'online' ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMode === 'online'}
-                  onChange={() => setPaymentMode('online')}
-                  className="h-4 w-4 text-primary-600"
-                />
-                <CreditCard size={20} className="text-gray-600" />
-                <div className="text-sm">
-                  <p className="font-medium text-gray-900">Online Payment</p>
-                  <p className="text-gray-500">Card / Net Banking (demo)</p>
                 </div>
               </label>
             </div>

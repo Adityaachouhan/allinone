@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, Clock, Truck, ShieldCheck, Tag, ArrowRight } from 'lucide-react';
+import { ChevronRight, Clock, Truck, Tag, ArrowRight, Banknote } from 'lucide-react';
 import type { Banner, Product } from '@/types';
 import { useNavigate } from '@/lib/router';
 import { ProductCard } from '@/components/ProductCard';
@@ -129,7 +129,7 @@ export function HomePage() {
           {[
             { icon: Truck, title: 'Fast Delivery', desc: 'Within 2 hours' },
             { icon: Tag, title: 'Best Prices', desc: 'Daily essentials' },
-            { icon: ShieldCheck, title: 'Secure Payment', desc: 'Card · Net Banking · COD' },
+            { icon: Banknote, title: 'Cash on Delivery', desc: 'Pay when delivered' },
             { icon: Clock, title: 'Open 7 AM–10 PM', desc: 'Order anytime' },
           ].map((b) => {
             const Icon = b.icon;
