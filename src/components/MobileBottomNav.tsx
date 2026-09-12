@@ -26,10 +26,14 @@ export function MobileBottomNav() {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${
-                active ? 'text-primary-700' : 'text-gray-500'
+              className={`relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs transition-colors ${
+                active ? 'text-primary-600' : 'text-gray-500'
               }`}
             >
+              {/* Active indicator line at top */}
+              {active && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary-600" />
+              )}
               <div className="relative">
                 <Icon size={22} />
                 {item.badge && item.badge > 0 ? (
@@ -38,7 +42,7 @@ export function MobileBottomNav() {
                   </span>
                 ) : null}
               </div>
-              <span>{item.label}</span>
+              <span className={active ? 'font-semibold' : ''}>{item.label}</span>
             </button>
           );
         })}
@@ -46,3 +50,4 @@ export function MobileBottomNav() {
     </nav>
   );
 }
+
