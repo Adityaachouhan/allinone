@@ -973,11 +973,11 @@ router.patch('/store-settings', authRequired, requireAdmin, asyncH(async (req, r
   const slugForCache = req.tenant?.domain?.replace(/[^a-z0-9]/gi, '') || 'default';
   clearIconCache(slugForCache);
 
-  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
-
-  // 4. Return updated row
+  // 4. Return updated row and broadcast SSE
   const updatedData = await getLatestStoreSettings(req.tenantDb);
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'store_settings' });
   res.json(updatedData);
 }));
+
 
 export default router;

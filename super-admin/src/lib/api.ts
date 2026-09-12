@@ -128,6 +128,8 @@ export const tenantsApi = {
   get:   (id: string) => apiFetch<Tenant>(`/tenants/${id}`),
   patch: (id: string, body: Partial<Tenant>) =>
     apiFetch<Tenant>(`/tenants/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (id: string, hard = false) =>
+    apiFetch<{ ok: boolean; deleted: boolean; status?: string }>(`/tenants/${id}?hard=${hard}`, { method: 'DELETE' }),
   provision: (body: {
     businessName: string; ownerName: string; ownerPhone: string;
     ownerEmail: string; domain: string; initialStatus?: string; planId?: string; adminPassword?: string;
@@ -144,6 +146,11 @@ export const tenantsApi = {
     apiFetch<Subscription>(`/tenants/${tenantId}/subscriptions`, {
       method: 'POST',
       body: JSON.stringify({ planId, paymentMethod }),
+    }),
+  notify: (tenantId: string, title: string, message: string) =>
+    apiFetch<{ ok: boolean }>(`/tenants/${tenantId}/notify`, {
+      method: 'POST',
+      body: JSON.stringify({ title, message }),
     }),
 };
 

@@ -63,8 +63,7 @@ export function MobileBottomNav() {
               </div>
 
               <span
-                className="text-[10px] font-medium"
-                style={{ color: active ? '#15803d' : '#6b7280' }}
+                className={`text-[10px] font-medium ${active ? 'text-primary-700 font-semibold' : 'text-gray-500'}`}
               >
                 {item.label}
               </span>
