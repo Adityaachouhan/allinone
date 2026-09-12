@@ -94,12 +94,12 @@ export function CartPage() {
   const total = subtotal + deliveryCharge;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 animate-fade-in">
+    <div className="mx-auto w-full max-w-5xl px-3 sm:px-4 py-4 sm:py-6 animate-fade-in min-w-0">
       <h1 className="font-heading text-2xl font-bold text-gray-900">
         Your Cart <span className="text-base font-normal text-gray-500">({itemCount} items)</span>
       </h1>
 
-      <div className="mt-5 grid gap-6 lg:grid-cols-3">
+      <div className="mt-5 grid gap-5 lg:gap-6 lg:grid-cols-3 w-full min-w-0">
         {/* Items */}
         <div className="lg:col-span-2 space-y-3">
           {items.map(({ product, quantity }) => (

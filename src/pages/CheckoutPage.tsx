@@ -293,7 +293,7 @@ export function CheckoutPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 animate-fade-in">
+    <div className="mx-auto w-full max-w-5xl px-3 sm:px-4 py-4 sm:py-6 animate-fade-in min-w-0">
       <button
         onClick={() => navigate('/cart')}
         className="flex items-center gap-1 text-sm text-gray-600 hover:text-primary-700"
@@ -303,38 +303,38 @@ export function CheckoutPage() {
 
       <h1 className="mt-2 font-heading text-2xl font-bold text-gray-900">Checkout</h1>
 
-      <div className="mt-5 grid gap-6 lg:grid-cols-3">
-        <div className="space-y-5 lg:col-span-2">
+      <div className="mt-5 grid gap-5 lg:gap-6 lg:grid-cols-3 w-full min-w-0">
+        <div className="space-y-4 sm:space-y-5 lg:col-span-2 w-full min-w-0">
           {/* Address */}
           <Section icon={MapPin} title="Delivery Address" step={1}>
             {addresses.length > 0 && !showAddressForm && (
-              <div className="space-y-2">
+              <div className="space-y-2 w-full min-w-0">
                 {addresses.map((a) => (
                   <div
                     key={a.id}
                     onClick={() => setSelectedAddressId(a.id)}
-                    className={`flex items-start justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-all ${
+                    className={`flex items-start justify-between gap-2.5 sm:gap-3 rounded-lg border p-2.5 sm:p-3 cursor-pointer transition-all w-full min-w-0 ${
                       selectedAddressId === a.id
                         ? 'border-primary-500 bg-primary-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
                       <input
                         type="radio"
                         name="address"
                         checked={selectedAddressId === a.id}
                         onChange={() => setSelectedAddressId(a.id)}
-                        className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500"
+                        className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 shrink-0"
                       />
-                      <div className="text-sm">
-                        <p className="font-medium text-gray-900">
+                      <div className="text-sm min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 break-words">
                           {a.full_name} <span className="text-gray-500">· {a.label}</span>
                         </p>
-                        <p className="text-gray-600">
+                        <p className="text-gray-600 break-words text-xs sm:text-sm">
                           {a.line1}{a.line2 ? `, ${a.line2}` : ''}, {a.city} – {a.pincode}
                         </p>
-                        <p className="text-gray-500">Phone: {a.phone}</p>
+                        <p className="text-gray-500 text-xs sm:text-sm">Phone: {a.phone}</p>
                       </div>
                     </div>
                     <button
@@ -460,7 +460,7 @@ export function CheckoutPage() {
               {slots.map((slot) => (
                 <label
                   key={slot}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-sm ${
+                  className={`flex cursor-pointer items-center gap-2.5 sm:gap-3 rounded-lg border p-2.5 sm:p-3 text-sm w-full min-w-0 ${
                     deliverySlot === slot
                       ? 'border-primary-500 bg-primary-50 text-primary-800'
                       : 'border-gray-200 text-gray-700 hover:border-gray-300'
@@ -471,9 +471,9 @@ export function CheckoutPage() {
                     name="slot"
                     checked={deliverySlot === slot}
                     onChange={() => setDeliverySlot(slot)}
-                    className="h-4 w-4 text-primary-600"
+                    className="h-4 w-4 text-primary-600 shrink-0"
                   />
-                  {slot}
+                  <span className="min-w-0 truncate">{slot}</span>
                 </label>
               ))}
             </div>
@@ -481,28 +481,28 @@ export function CheckoutPage() {
 
           {/* Payment */}
           <Section icon={Banknote} title="Payment Method" step={3}>
-            <div className="space-y-2">
+            <div className="space-y-2 w-full min-w-0">
               <label
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-primary-500 bg-primary-50 p-3"
+                className="flex cursor-pointer items-center gap-2.5 sm:gap-3 rounded-lg border border-primary-500 bg-primary-50 p-2.5 sm:p-3 w-full min-w-0"
               >
                 <input
                   type="radio"
                   name="payment"
                   checked={true}
                   readOnly
-                  className="h-4 w-4 text-primary-600"
+                  className="h-4 w-4 text-primary-600 shrink-0"
                 />
-                <Banknote size={20} className="text-primary-600" />
-                <div className="text-sm">
+                <Banknote size={20} className="text-primary-600 shrink-0" />
+                <div className="text-sm min-w-0 flex-1">
                   <p className="font-medium text-gray-900">Cash on Delivery (COD)</p>
-                  <p className="text-gray-500">Pay with cash when your order arrives</p>
+                  <p className="text-gray-500 text-xs sm:text-sm">Pay with cash when your order arrives</p>
                 </div>
               </label>
             </div>
           </Section>
 
           {/* Notes */}
-          <div>
+          <div className="w-full min-w-0">
             <label className="label">Order Notes (optional)</label>
             <textarea
               value={notes}
@@ -514,31 +514,31 @@ export function CheckoutPage() {
         </div>
 
         {/* Summary */}
-        <div className="lg:col-span-1">
-          <div className="card sticky top-32 p-5">
+        <div className="lg:col-span-1 w-full min-w-0">
+          <div className="card sticky top-32 p-4 sm:p-5 w-full min-w-0">
             <h2 className="text-base font-semibold text-gray-900">Order Summary</h2>
             <div className="mt-3 max-h-48 space-y-2 overflow-y-auto">
               {items.map(({ product, quantity }) => (
-                <div key={product.id} className="flex items-center gap-2 text-sm">
-                  <img src={product.image_url} alt="" className="h-10 w-10 rounded object-cover" />
+                <div key={product.id} className="flex items-center gap-2 text-sm w-full min-w-0">
+                  <img src={product.image_url} alt="" className="h-10 w-10 shrink-0 rounded object-cover" />
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-gray-800">{product.name}</p>
                     <p className="text-xs text-gray-500">{quantity} × {formatCurrency(product.price)}</p>
                   </div>
-                  <span className="font-medium">{formatCurrency(product.price * quantity)}</span>
+                  <span className="font-medium shrink-0">{formatCurrency(product.price * quantity)}</span>
                 </div>
               ))}
             </div>
-            <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm">
-              <div className="flex justify-between">
+            <dl className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm w-full min-w-0">
+              <div className="flex justify-between items-center gap-2">
                 <dt className="text-gray-600">Subtotal</dt>
-                <dd className="font-medium">{formatCurrency(subtotal)}</dd>
+                <dd className="font-medium shrink-0">{formatCurrency(subtotal)}</dd>
               </div>
-              <div className="flex justify-between items-center">
-                <dt className="text-gray-600">
+              <div className="flex justify-between items-start gap-2">
+                <dt className="text-gray-600 text-xs sm:text-sm min-w-0 flex-1 break-words">
                   Delivery Fee {currentPincode ? `(${currentPincode}${areaName ? ` · ${areaName}` : ''})` : ''}
                 </dt>
-                <dd className="font-semibold text-gray-900">
+                <dd className="font-semibold text-gray-900 text-xs sm:text-sm shrink-0">
                   {deliveryCharge === 0 ? 'FREE' : formatCurrency(deliveryCharge)}
                 </dd>
               </div>
@@ -584,13 +584,13 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="card p-5">
-      <div className="mb-3 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
+    <div className="card p-3.5 sm:p-5 w-full min-w-0">
+      <div className="mb-3 flex items-center gap-2 min-w-0">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-bold text-white">
           {step}
         </div>
-        <Icon size={18} className="text-gray-600" />
-        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        <Icon size={18} className="text-gray-600 shrink-0" />
+        <h2 className="text-base font-semibold text-gray-900 truncate">{title}</h2>
       </div>
       {children}
     </div>
