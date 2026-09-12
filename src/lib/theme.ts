@@ -96,10 +96,42 @@ export function applyThemeColor(baseHex: string, persist = true) {
     root.style.setProperty(prop, val);
   }
 
-  // Update browser mobile toolbar theme-color meta tag
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) {
-    metaTheme.setAttribute('content', validHex);
+  // Update browser mobile toolbar / Android status bar theme-color meta tags
+  // Replacing DOM nodes is required because Chrome on Android ignores setAttribute on existing tags
+  try {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => el.remove());
+
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = validHex;
+    document.head.appendChild(meta);
+
+    const metaDark = document.createElement('meta');
+    metaDark.name = 'theme-color';
+    metaDark.media = '(prefers-color-scheme: dark)';
+    metaDark.content = validHex;
+    document.head.appendChild(metaDark);
+
+    const metaLight = document.createElement('meta');
+    metaLight.name = 'theme-color';
+    metaLight.media = '(prefers-color-scheme: light)';
+    metaLight.content = validHex;
+    document.head.appendChild(metaLight);
+
+    let msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+    if (!msMeta) {
+      msMeta = document.createElement('meta');
+      msMeta.setAttribute('name', 'msapplication-navbutton-color');
+      document.head.appendChild(msMeta);
+    }
+    msMeta.setAttribute('content', validHex);
+
+    const appleMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (appleMeta) {
+      appleMeta.setAttribute('content', 'default');
+    }
+  } catch {
+    // Ignore DOM head manipulation errors in non-standard environments
   }
 
   if (persist && validHex) {

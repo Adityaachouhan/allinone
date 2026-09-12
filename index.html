@@ -27,8 +27,25 @@
             }
           }
           if (color && /^#[0-9a-fA-F]{3,6}$/.test(color)) {
-            var meta = document.querySelector('meta[name="theme-color"]');
-            if (meta) meta.setAttribute('content', color);
+            // Recreating meta tags forces mobile browsers / Chrome / WebAPK to repaint the top bar immediately
+            document.querySelectorAll('meta[name="theme-color"]').forEach(function(el) { el.remove(); });
+            var m = document.createElement('meta');
+            m.name = 'theme-color';
+            m.content = color;
+            document.head.appendChild(m);
+
+            var mDark = document.createElement('meta');
+            mDark.name = 'theme-color';
+            mDark.media = '(prefers-color-scheme: dark)';
+            mDark.content = color;
+            document.head.appendChild(mDark);
+
+            var mLight = document.createElement('meta');
+            mLight.name = 'theme-color';
+            mLight.media = '(prefers-color-scheme: light)';
+            mLight.content = color;
+            document.head.appendChild(mLight);
+
             var clean = color.replace('#', '').trim();
             if (clean.length === 3) clean = clean.split('').map(function(c) { return c + c; }).join('');
             if (clean.length === 6) {
@@ -77,7 +94,7 @@
 
     <!-- iOS PWA settings -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Grocery" />
 
     <!-- Android / general PWA -->

@@ -20,7 +20,7 @@
  * @returns {string}               - JavaScript source code for the SW
  */
 export function generateServiceWorker({ slug, storeName }) {
-  const cacheName = `grocery-pwa-${slug}-v2`;
+  const cacheName = `grocery-pwa-${slug}-v3`;
 
   return `
 // ============================================================
@@ -33,7 +33,6 @@ const CACHE_NAME = '${cacheName}';
 // Core shell files to pre-cache on install
 const PRECACHE_URLS = [
   '/',
-  '/manifest.webmanifest',
   '/offline.html',
 ];
 
@@ -70,8 +69,9 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET and cross-origin requests
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Public store settings and catalog APIs: Network-First with cache fallback for offline sync
+  // Public store settings, manifest and catalog APIs: Network-First with cache fallback for offline sync
   const isPublicStoreApi =
+    url.pathname === '/manifest.webmanifest' ||
     url.pathname === '/api/store' ||
     url.pathname === '/api/public/store-settings' ||
     url.pathname.startsWith('/api/categories') ||
@@ -106,9 +106,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets — Cache-First (JS, CSS, fonts, images, uploads, manifest)
+  // Static assets — Cache-First (JS, CSS, fonts, images, uploads)
   const isStatic =
-    url.pathname === '/manifest.webmanifest' ||
     url.pathname.startsWith('/uploads/') ||
     /\\.(js|css|woff2?|ttf|otf|eot|svg|png|jpg|jpeg|gif|ico|webp)$/i.test(url.pathname);
 
