@@ -74,7 +74,13 @@ export async function tenantResolver(req, res, next) {
 
   try {
     // ── 1. Look up tenant by domain (stored as IP:PORT or real domain) ───────
-    const tenant = await Tenant.findOne({ where: { domain: host } });
+    const cleanHost = host.replace(/^www\./i, '');
+    const withWww   = `www.${cleanHost}`;
+    const tenant    = await Tenant.findOne({
+      where: {
+        domain: [host, cleanHost, withWww],
+      },
+    });
 
     if (!tenant) {
       return res.status(404).send(`

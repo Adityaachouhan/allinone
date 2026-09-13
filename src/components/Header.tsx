@@ -66,7 +66,7 @@ export function Header({ categories }: { categories: Category[] }) {
   return (
     <header className="sticky top-0 z-40 bg-white shadow-sm">
       {/* Top bar */}
-      <div className="hidden bg-primary-700 text-white md:block">
+      <div className="hidden bg-primary-600 text-white md:block">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-1.5 text-xs">
           <span className="flex items-center gap-1.5 truncate">
             <Leaf size={14} className="shrink-0" /> Fresh groceries delivered to your door

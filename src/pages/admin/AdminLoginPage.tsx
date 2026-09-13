@@ -21,10 +21,16 @@ export function AdminLoginPage() {
       const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim(), password }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Login failed');
+      let data: { error?: string; token?: string; admin?: { id: string; email: string } } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Response was not JSON (e.g. HTML 404/502 page)
+      }
+      if (!res.ok) throw new Error(data?.error || `Login failed (${res.status})`);
+      if (!data.token || !data.admin) throw new Error('Invalid response from server.');
       // Store token using the same key api() reads for all subsequent requests
       localStorage.setItem('aio_token', data.token);
       localStorage.setItem('aio_session', JSON.stringify({ user: { id: data.admin.id, email: data.admin.email }, isAdmin: true }));
@@ -32,8 +38,8 @@ export function AdminLoginPage() {
       await refreshProfile();
       // Use SPA navigation so dashboard loads without a full page reload
       navigate('/admin/dashboard');
-    } catch {
-      setError('Incorrect email or password.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Incorrect email or password.');
       setLoading(false);
     }
   };
