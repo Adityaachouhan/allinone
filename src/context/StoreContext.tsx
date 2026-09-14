@@ -60,6 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const data = await db.getPublicStoreSettings();
       if (data && typeof data === 'object') {
+        const freshColor = typeof data.theme_color === 'string' && data.theme_color ? data.theme_color : '#16a34a';
         const sanitized: StoreSettings = {
           store_name: typeof data.store_name === 'string' ? data.store_name.trim() : '',
           tagline: typeof data.tagline === 'string' ? data.tagline : 'Grocery Mart',
@@ -71,9 +72,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return_policy: data.return_policy ?? '',
           grievance_officer: data.grievance_officer ?? '',
           delivery_areas: data.delivery_areas ?? '',
-          theme_color: typeof data.theme_color === 'string' && data.theme_color ? data.theme_color : '#16a34a',
+          theme_color: freshColor,
         };
+
+        // ── Cache-bust: if server color differs from localStorage, clear stale cache
+        // This ensures that when an admin changes the theme, all clients update on next load.
+        try {
+          const cachedRaw = localStorage.getItem(STORE_SETTINGS_CACHE_KEY);
+          const cachedColor = cachedRaw ? JSON.parse(cachedRaw)?.theme_color : null;
+          if (cachedColor && cachedColor.toLowerCase() !== freshColor.toLowerCase()) {
+            // Remove both cache keys so stale color is never re-applied on next boot
+            localStorage.removeItem(STORE_SETTINGS_CACHE_KEY);
+            localStorage.removeItem('aio_store_theme_color');
+          }
+        } catch {
+          // Ignore
+        }
+
         setStoreSettings(sanitized);
+        // Immediately apply the fresh color from server — overrides any stale localStorage value
+        applyThemeColor(freshColor, true);
         try {
           localStorage.setItem(STORE_SETTINGS_CACHE_KEY, JSON.stringify(sanitized));
         } catch {

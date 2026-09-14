@@ -20,7 +20,7 @@
  * @returns {string}               - JavaScript source code for the SW
  */
 export function generateServiceWorker({ slug, storeName }) {
-  const cacheName = `grocery-pwa-${slug}-v3`;
+  const cacheName = `grocery-pwa-${slug}-v4`;
 
   return `
 // ============================================================
