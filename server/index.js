@@ -16,7 +16,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -78,10 +78,47 @@ app.get('/sw.js', tenantResolver, requireTenant, (req, res, next) => {
 // In production: Express serves the built React SPA.
 // Each tenant sees the same SPA shell; their data is loaded dynamically via /api.
 if (existsSync(distDir)) {
-  app.use(express.static(distDir));
-  // SPA fallback — all non-API, non-SA routes serve index.html
-  app.get(/^\/(?!api|superadmin).*/, (_req, res) => {
-    res.sendFile(join(distDir, 'index.html'));
+  // Serve static assets (JS, CSS, fonts, icons) directly, excluding root index.html
+  app.use(express.static(distDir, { index: false }));
+
+  const indexPath = join(distDir, 'index.html');
+  const indexHtmlTemplate = existsSync(indexPath) ? readFileSync(indexPath, 'utf-8') : '';
+
+  // SPA fallback — all non-API, non-SA routes serve index.html with tenant theme-color & title injected
+  app.get(/^\/(?!api|superadmin).*/, tenantResolver, async (req, res) => {
+    if (!indexHtmlTemplate) {
+      return res.status(404).send('Not found');
+    }
+
+    let html = indexHtmlTemplate;
+
+    if (req.tenantDb) {
+      try {
+        const rows = await req.tenantDb.query(
+          `SELECT store_name, tagline, theme_color FROM store_settings ORDER BY updated_at DESC LIMIT 1`,
+          { type: req.tenantDb.constructor.QueryTypes?.SELECT ?? 'SELECT' }
+        );
+        const settings = Array.isArray(rows) && rows.length > 0 ? rows[0] : (rows && rows.store_name ? rows : null);
+        if (settings) {
+          const color = settings.theme_color;
+          const name = settings.store_name || req.tenant?.business_name || '';
+          const tagline = settings.tagline || '';
+
+          if (color && /^#[0-9a-fA-F]{3,6}$/.test(color)) {
+            html = html.replace(/<meta name="theme-color" content="[^"]*"\s*\/?>/gi, `<meta name="theme-color" content="${color}" />`);
+          }
+          if (name) {
+            const title = tagline ? `${name} - ${tagline}` : name;
+            html = html.replace(/<title>[^<]*<\/title>/gi, `<title>${title}</title>`);
+          }
+        }
+      } catch {
+        // Fallback gracefully on DB query error
+      }
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
   });
 }
 
