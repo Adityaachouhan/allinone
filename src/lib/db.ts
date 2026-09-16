@@ -111,9 +111,28 @@ export async function deleteCategory(id: string) {
 
 // ---------- Products ----------
 
-export async function listProducts(): Promise<Product[]> {
-  return api<Product[]>('/products');
+export type ProductsPage = { total: number; page: number; limit: number; products: Product[] };
+
+export async function listProducts(params?: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+  category_id?: string;
+  unlimited?: boolean;          // ← storefront: fetch without default limit cap
+}): Promise<ProductsPage> {
+  const qs = new URLSearchParams();
+  if (params?.search)      qs.set('search', params.search);
+  if (params?.category_id) qs.set('category_id', params.category_id);
+  if (params?.unlimited) {
+    qs.set('limit', '9999');   // effectively unlimited
+    qs.set('offset', '0');
+  } else {
+    qs.set('limit',  String(params?.limit  ?? 50));
+    qs.set('offset', String(params?.offset ?? 0));
+  }
+  return api<ProductsPage>(`/products?${qs.toString()}`);
 }
+
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
   return api<Product | null>(`/products/slug/${slug}`);

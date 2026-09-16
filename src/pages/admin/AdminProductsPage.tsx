@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Search, Star, X, Package, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Plus, Pencil, Trash2, Search, Star, X, Package, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as db from '@/lib/db';
 import type { Category, Product } from '@/types';
 import { formatCurrency, slugify } from '@/lib/utils';
 import { EmptyState, Spinner } from '@/components/Feedback';
 import { ImageUpload } from '@/components/admin/ImageUpload';
+
+const PAGE_SIZE = 50;
 
 type ProductForm = {
   name: string; category_id: string; price: string; mrp: string; unit: string;
@@ -19,52 +21,72 @@ const emptyForm: ProductForm = {
 
 export function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0); // 0-based offset pages
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadProducts = async () => {
-    setProducts(await db.listProducts());
+  // Debounce search input → avoid hammering server on every keypress
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPage(0); // reset to page 1 on new search
+    }, 350);
   };
+
+  const loadProducts = useCallback(async (pageOverride?: number, searchOverride?: string) => {
+    setLoading(true);
+    try {
+      const result = await db.listProducts({
+        limit: PAGE_SIZE,
+        offset: (pageOverride ?? page) * PAGE_SIZE,
+        search: searchOverride !== undefined ? searchOverride : debouncedSearch,
+      });
+      setProducts(result.products);
+      setTotal(result.total);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, debouncedSearch]);
 
   const loadCategories = async () => {
     setCategories(await db.listCategories());
   };
 
+  // Initial load
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        await Promise.all([loadProducts(), loadCategories()]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
+    loadCategories();
   }, []);
 
-  // Auto-refresh when server broadcasts a data change via SSE
+  // Reload on page or search change
+  useEffect(() => {
+    loadProducts();
+  }, [page, debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // SSE auto-refresh — only refresh current page, not all 6k products
   useEffect(() => {
     const handler = (e: Event) => {
       const type = (e as CustomEvent).detail?.type;
       if (type === 'product' || type === 'category') {
-        Promise.all([loadProducts(), loadCategories()]).catch(console.error);
+        loadProducts();
+        loadCategories();
       }
     };
     window.addEventListener('admin-data-changed', handler);
     return () => window.removeEventListener('admin-data-changed', handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadProducts]);
 
-  const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.brand.toLowerCase().includes(search.toLowerCase()),
-  );
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const openAdd = () => {
     setForm({ ...emptyForm, category_id: categories[0]?.id || '' });
@@ -151,7 +173,6 @@ export function AdminProductsPage() {
   };
 
   const bulkUpdateStock = async () => {
-    // Simple bulk: add 20 to all products with stock < 10
     if (!confirm('Restock all low-stock products (stock < 10) to 50 units?')) return;
     const lowStock = products.filter((p) => p.stock_quantity < 10);
     for (const p of lowStock) {
@@ -160,14 +181,12 @@ export function AdminProductsPage() {
     await loadProducts();
   };
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><Spinner size={32} /></div>;
-
   return (
     <div className="animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold text-gray-900">Products</h1>
-          <p className="text-sm text-gray-500">{products.length} products in catalog</p>
+          <p className="text-sm text-gray-500">{total.toLocaleString()} products in catalog</p>
         </div>
         <div className="flex gap-2">
           <button onClick={bulkUpdateStock} className="btn-secondary">Restock Low Items</button>
@@ -175,24 +194,36 @@ export function AdminProductsPage() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search — server-side */}
       <div className="mt-4 relative max-w-md">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           className="input pl-10"
-          placeholder="Search by name or brand…"
+          placeholder="Search by name…"
         />
+        {search && (
+          <button
+            onClick={() => { setSearch(''); setDebouncedSearch(''); setPage(0); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {/* Table */}
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex h-48 items-center justify-center">
+            <Spinner size={32} />
+          </div>
+        ) : products.length === 0 ? (
           <EmptyState
             icon={Package}
             title="No products found"
-            description="Add your first product to the catalog."
+            description={debouncedSearch ? `No results for "${debouncedSearch}"` : 'Add your first product to the catalog.'}
             actionLabel="Add Product"
             onAction={openAdd}
           />
@@ -210,19 +241,19 @@ export function AdminProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((p) => (
+                {products.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <img
-                          src={p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop'}
+                          src={p.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=80&auto=format&fit=crop'}
                           alt=""
                           className="h-10 w-10 rounded object-cover"
+                          loading="lazy"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop';
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=80&auto=format&fit=crop';
                           }}
                         />
-
                         <div>
                           <p className="font-medium text-gray-900">{p.name}</p>
                           <p className="text-xs text-gray-500">{p.brand} · {p.unit}</p>
@@ -276,6 +307,32 @@ export function AdminProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+          <p>
+            Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()} products
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="rounded p-1.5 hover:bg-gray-100 disabled:opacity-40"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="font-medium">Page {page + 1} / {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="rounded p-1.5 hover:bg-gray-100 disabled:opacity-40"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Form modal */}
       {showForm && (

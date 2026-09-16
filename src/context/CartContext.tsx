@@ -154,14 +154,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const recheckAllCartItems = async (): Promise<boolean> => {
     if (items.length === 0) return true;
     try {
-      const allProducts = await db.listProducts();
+      // Fetch only the products actually in the cart — not all 6k products
+      const liveProducts = await Promise.all(
+        items.map((item) => db.getProductById(item.product.id))
+      );
       let allValid = true;
       let noticeMsg: string | null = null;
 
       setItems((prev) => {
         const next: CartItem[] = [];
-        for (const item of prev) {
-          const live = allProducts.find((p) => p.id === item.product.id);
+        for (let i = 0; i < prev.length; i++) {
+          const item = prev[i];
+          const live = liveProducts[i];
           if (!live || !isProductAvailable(live) || live.stock_quantity <= 0) {
             allValid = false;
             noticeMsg = `Notice: "${item.product.name}" in your cart is out of stock and was removed.`;

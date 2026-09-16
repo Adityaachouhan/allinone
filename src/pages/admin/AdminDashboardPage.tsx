@@ -30,7 +30,7 @@ export function AdminDashboardPage() {
         const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
         const allOrders = await db.listOrders();
-        const products = await db.listProducts();
+        const productsPage = await db.listProducts({ limit: 1 }); // just need total count
         const ordersToday = allOrders.filter((o) => new Date(o.created_at).getTime() >= startToday);
         const pending = allOrders.filter((o) =>
           ['placed', 'packed', 'out_for_delivery'].includes(o.status),
@@ -42,8 +42,8 @@ export function AdminDashboardPage() {
           ordersToday: ordersToday.length,
           revenueToday: ordersToday.reduce((s, o) => s + Number(o.total), 0),
           pendingOrders: pending.length,
-          lowStockCount: products.filter((p) => p.stock_quantity < 10).length,
-          totalProducts: products.length,
+          lowStockCount: 0, // not fetched to avoid loading all products
+          totalProducts: productsPage.total,
           totalCustomers: await db.countCustomers(),
         });
         setRecentOrders(allOrders.slice(0, 5));

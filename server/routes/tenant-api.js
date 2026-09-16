@@ -582,9 +582,101 @@ router.delete('/categories/:id', authRequired, requireAdmin, asyncH(async (req, 
 // ── Products ──────────────────────────────────────────────────────────────────
 router.get('/products', asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
-  const rows = await Product.findAll({ include: [{ model: Category, as: 'category' }], order: [['created_at', 'DESC']] });
+
+  // Pagination — default 50 per page for admin, unlimited for storefront
+  const limit  = req.query.limit  !== undefined ? parseInt(req.query.limit,  10) : 50;
+  const offset = req.query.offset !== undefined ? parseInt(req.query.offset, 10) : 0;
+
+  // Filters
+  const where = {};
+  if (req.query.category_id) where.category_id = req.query.category_id;
+  if (req.query.search) {
+    where.name = { [Op.iLike]: `%${req.query.search}%` };
+  }
+  if (req.query.is_featured === 'true') where.is_featured = true;
+
+  const { count, rows } = await Product.findAndCountAll({
+    where,
+    include: [{ model: Category, as: 'category' }],
+    order: [['created_at', 'DESC']],
+    limit,
+    offset,
+  });
+
+  res.json({ total: count, page: Math.floor(offset / limit) + 1, limit, products: rows.map(mapProduct) });
+}));
+
+// Fast storefront endpoints — DB-filtered, never load all products
+router.get('/products/featured', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const limit = Math.min(parseInt(req.query.limit ?? '12', 10), 50);
+  const rows = await Product.findAll({
+    where: { is_featured: true, is_out_of_stock: false },
+    include: [{ model: Category, as: 'category' }],
+    order: [['rating', 'DESC']],
+    limit,
+  });
   res.json(rows.map(mapProduct));
 }));
+
+router.get('/products/deals', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const limit = Math.min(parseInt(req.query.limit ?? '12', 10), 50);
+  const rows = await Product.findAll({
+    where: { is_out_of_stock: false },
+    include: [{ model: Category, as: 'category' }],
+    order: [['rating', 'DESC']],
+    limit: limit * 4, // fetch more to filter client-side within a tiny set
+  });
+  const deals = rows
+    .filter(p => p.price < p.mrp)
+    .sort((a, b) => (b.mrp - b.price) - (a.mrp - a.price))
+    .slice(0, limit);
+  res.json(deals.map(mapProduct));
+}));
+
+router.get('/products/bestsellers', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const limit = Math.min(parseInt(req.query.limit ?? '12', 10), 50);
+  const rows = await Product.findAll({
+    where: { is_out_of_stock: false },
+    include: [{ model: Category, as: 'category' }],
+    order: [['rating', 'DESC']],
+    limit,
+  });
+  res.json(rows.map(mapProduct));
+}));
+
+router.get('/products/search', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const q = req.query.q ? String(req.query.q).trim() : '';
+  if (!q) return res.json([]);
+  const limit = Math.min(parseInt(req.query.limit ?? '20', 10), 50);
+  const rows = await Product.findAll({
+    where: { name: { [Op.iLike]: `%${q}%` } },
+    include: [{ model: Category, as: 'category' }],
+    order: [['rating', 'DESC']],
+    limit,
+  });
+  res.json(rows.map(mapProduct));
+}));
+
+router.get('/products/by-category/:slug', asyncH(async (req, res) => {
+  const { Product, Category } = req.tenantModels;
+  const cat = await Category.findOne({ where: { slug: req.params.slug } });
+  if (!cat) return res.json([]);
+  const limit = req.query.limit ? Math.min(parseInt(req.query.limit, 10), 200) : 100;
+  const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
+  const { count, rows } = await Product.findAndCountAll({
+    where: { category_id: cat.id, is_out_of_stock: false },
+    include: [{ model: Category, as: 'category' }],
+    order: [['rating', 'DESC']],
+    limit,
+    offset,
+  });
+  res.json({ total: count, page: Math.floor(offset / limit) + 1, limit, products: rows.map(mapProduct) });
+}));
+
 
 router.get('/products/slug/:slug', asyncH(async (req, res) => {
   const { Product, Category } = req.tenantModels;
@@ -626,6 +718,60 @@ router.delete('/products/:id', authRequired, requireAdmin, asyncH(async (req, re
   await Product.destroy({ where: { id: req.params.id } });
   sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'product' });
   res.json({ ok: true });
+}));
+
+router.post('/admin/auto-fix-images', authRequired, requireAdmin, asyncH(async (req, res) => {
+  const { Product } = req.tenantModels;
+  const seq = Product.sequelize;
+
+  const updates = [
+    { pattern: '%PANEER%', url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%MILK%', url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%CHEESE%', url: 'https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%ICE CREAM%', url: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%KULFI%', url: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%CHOCOMINI%', url: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%ATTA%', url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%BESAN%', url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%OIL%', url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%MUSTD%', url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%REFIN%', url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%COOKIE%', url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%BISCUIT%', url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%BOURBON%', url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%G.DAY%', url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%MARIE%', url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%POP%', url: 'https://images.unsplash.com/photo-1578849278619-e73505e9610f?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%CHOCO%', url: 'https://images.unsplash.com/photo-1582293041079-7814c2f12063?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%ENSURE%', url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%ALO FRUT%', url: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%POWDER%', url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%SEASONING%', url: 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%BALM%', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%BIOTIQUE%', url: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%PENCIL%', url: 'https://images.unsplash.com/photo-1585336261026-91e0318999e2?auto=format&fit=crop&w=600&q=80' },
+    { pattern: '%FEVICOL%', url: 'https://images.unsplash.com/photo-1585336261026-91e0318999e2?auto=format&fit=crop&w=600&q=80' }
+  ];
+
+  let totalUpdated = 0;
+  for (const { pattern, url } of updates) {
+    const [result] = await seq.query(
+      `UPDATE products SET image_url = :url WHERE UPPER(name) LIKE :pattern AND (image_url = '' OR image_url IS NULL)`,
+      { replacements: { url, pattern } }
+    );
+    totalUpdated += result?.rowCount || 0;
+  }
+
+  // Set default image for any remaining items without an image
+  const defaultUrl = 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80';
+  const [defResult] = await seq.query(
+    `UPDATE products SET image_url = :defaultUrl WHERE image_url = '' OR image_url IS NULL`,
+    { replacements: { defaultUrl } }
+  );
+  totalUpdated += defResult?.rowCount || 0;
+
+  sseManager.notifyTenant(req.tenant.id, { event: 'data_changed', type: 'product' });
+  res.json({ ok: true, totalUpdated });
 }));
 
 // ── Banners ───────────────────────────────────────────────────────────────────
